@@ -1,0 +1,14 @@
+{
+  "host": "127.0.0.1",
+  "port": 8000,
+  "model_name": "Pi05-RoboTwin",
+  "raw_state_dim": 18,
+  "model_state_dim": 14,
+  "raw_action_dim": 18,
+  "model_action_dim": 14,
+  "action_horizon": 15,
+  "camera_order": ["head", "left_wrist", "right_wrist"],
+  "control_period_ns": 100000000,
+  "request_timeout": 120.0,
+  "open_timeout": 10.0
+}

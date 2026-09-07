@@ -1,4 +1,4 @@
-# Orin / S600 / S100 / RTX 4090 deployment
+# Orin / S600 / S100 / Pi0.5 / RTX 4090 deployment
 
 This guide maps the existing verified setup into the new runtime boundary. It
 does not replace the tested S600 safety wrapper or the RoboTwin simulator.
@@ -43,6 +43,14 @@ process on its own port (the existing deployment uses `5702`). The gateway
 proxy performs tokenizer/DINO preprocessing and then reuses the common
 18D/14D adapter, so RoboTwin can switch between S600 and S100 by changing only
 the registered model and endpoint config.
+
+## Pi0.5 backend
+
+Pi0.5 uses the OpenPI WebSocket protocol rather than the TurboVLA MessagePack
+schema. The `pi05-remote` backend translates the common RoboTwin request into
+OpenPI's `state`/`images`/`prompt` observation and validates the returned
+action chunk. The default Pi05 horizon is 15 and the default action width is
+14; both are explicit in `config/pi05-remote.example.json`.
 
 ## 1. Orin TensorRT server
 

@@ -4,10 +4,10 @@
 AI policy inference. It gives robot applications one stable boundary for
 observations and action chunks while model execution remains replaceable.
 
-The repository currently includes a complete, dependency-free runtime core
-and a deterministic mock backend. It does **not** claim built-in execution of
-pi0, GR00T, OpenVLA, or other production checkpoints yet. Those integrations
-belong in backend modules built on the public `Backend` interface.
+The repository includes a complete, dependency-free runtime core, a
+deterministic mock backend, TurboVLA deployment backends, and a Pi0.5/Pi05
+OpenPI remote backend. Production checkpoints remain external model artifacts;
+the model-specific adapters keep those dependencies isolated from the core.
 
 ## Why another runtime?
 
@@ -139,7 +139,7 @@ on Windows).
 Windows PowerShell users can run `.\scripts\install.ps1` first. The command
 starts a local mock inference server, drives the built-in RoboTwin-compatible
 environment, validates the 18D→14D→18D mapping, and exits with a JSON summary.
-Use `embodied-infer doctor --profile orin|s600-remote` before connecting to
+Use `embodied-infer doctor --profile orin|s600-remote|s100|pi05` before connecting to
 hardware. `embodied-infer real` is deliberately read-only; CAN motion is never
 enabled by a download or by a default command.
 

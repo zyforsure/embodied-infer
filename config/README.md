@@ -7,6 +7,7 @@ The JSON files are templates, not credentials or model artifacts:
   runtime;
 - `s600-hbm-remote.example.json`: 4090 gateway to the existing S600 HBM server;
 - `s100-hbm-remote.example.json`: 4090 gateway to the S100 TurboVLA HBM server;
+- `pi05-remote.example.json`: OpenPI Pi0.5 WebSocket policy server;
 - `mock.example.json`: local protocol smoke tests.
 
 Replace paths and addresses for your machine. Do not commit plans, HBM files,

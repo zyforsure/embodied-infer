@@ -5,6 +5,7 @@ import numpy as np
 from embodied_infer_deploy.core import ModelBackend, ModelSpec
 from embodied_infer_deploy.models import ModelRegistry, create_model, model_registry
 from embodied_infer_deploy.models.turbovla.common import turbovla_spec
+import embodied_infer_deploy.models.pi05.remote as pi05_remote
 
 
 class ModelContractTests(unittest.TestCase):
@@ -17,6 +18,7 @@ class ModelContractTests(unittest.TestCase):
                 "turbovla-s600-remote",
                 "turbovla-s100-remote",
                 "turbovla-tensorrt",
+                "pi05-remote",
             },
         )
 
@@ -69,6 +71,45 @@ class ModelContractTests(unittest.TestCase):
         self.assertEqual(spec.raw_action_dim, 18)
         self.assertEqual(spec.model_action_dim, 14)
         self.assertEqual(spec.metadata()["robot_command_dim"], 16)
+
+    def test_pi05_remote_translates_openpi_observation_and_action_chunk(self):
+        class FakeConnection:
+            def __init__(self):
+                self.sent = None
+                self.messages = [pi05_remote._pack({"pi05": "test"})]
+
+            def send(self, payload):
+                self.sent = pi05_remote._unpack(payload)
+                self.messages.append(pi05_remote._pack({
+                    "actions": np.zeros((15, 14), dtype=np.float32),
+                    "server_timing": {"infer_ms": 1.5},
+                }))
+
+            def recv(self, timeout=None):
+                return self.messages.pop(0)
+
+            def close(self):
+                pass
+
+        connection = FakeConnection()
+        old_connect = pi05_remote.connect
+        pi05_remote.connect = lambda *args, **kwargs: connection
+        try:
+            backend = create_model("pi05-remote", {})
+            result = backend.infer({
+                "instruction": "pick up the block",
+                "state": np.zeros(14, dtype=np.float32),
+                "images": {
+                    "head": np.zeros((8, 8, 3), dtype=np.uint8),
+                    "left_wrist": np.zeros((8, 8, 3), dtype=np.uint8),
+                    "right_wrist": np.zeros((8, 8, 3), dtype=np.uint8),
+                },
+            })
+            self.assertEqual(result.actions.shape, (15, 14))
+            self.assertEqual(connection.sent["images"]["cam_high"].shape, (3, 8, 8))
+            self.assertEqual(connection.sent["prompt"], "pick up the block")
+        finally:
+            pi05_remote.connect = old_connect
 
 
 if __name__ == "__main__":

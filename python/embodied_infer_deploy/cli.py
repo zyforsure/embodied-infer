@@ -67,6 +67,7 @@ def _doctor(args: argparse.Namespace) -> int:
         "s600-remote": ("turbovla-s600-remote", "s600-hbm-remote.example.json"),
         "s600-direct": ("turbovla-s600-hbm", "s600-hbm-direct.example.json"),
         "s100": ("turbovla-s100-remote", "s100-hbm-remote.example.json"),
+        "pi05": ("pi05-remote", "pi05-remote.example.json"),
     }
     model_name, default_config = defaults[profile]
     config_path = _config_path(args.config, default_config)
@@ -95,6 +96,10 @@ def _doctor(args: argparse.Namespace) -> int:
             host = str(config[host_key])
             port = int(config.get(port_key, 5702))
             check("hbm-service", _port_open(host, port), f"{host}:{port}")
+    if profile == "pi05":
+        host = str(config.get("host", "127.0.0.1"))
+        port = int(config.get("port", 8000))
+        check("pi05-service", _port_open(host, port), f"{host}:{port}")
     if args.server_host:
         check("inference-service", _port_open(args.server_host, args.server_port),
               f"{args.server_host}:{args.server_port}")
@@ -148,9 +153,9 @@ def _wait_client(host: str, port: int, timeout: float = 20.0) -> InferenceClient
 
 
 def _sim(args: argparse.Namespace) -> int:
-    config = _config_path(args.config, "mock.example.json")
+    config = _config_path(args.config, args.default_config)
     command = [sys.executable, "-m", "embodied_infer_deploy.server",
-               "--model", "mock", "--backend-config", str(config),
+               "--model", args.model, "--backend-config", str(config),
                "--host", args.host, "--port", str(args.port)]
     process = subprocess.Popen(command, cwd=str(ROOT), env=os.environ.copy())
     client = None
@@ -233,7 +238,7 @@ def main() -> None:
     models.set_defaults(func=lambda _args: (print("\n".join(model_registry.names())) or 0))
 
     doctor = sub.add_parser("doctor", help="check software, model files, and services")
-    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100"), default="mock")
+    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100", "pi05"), default="mock")
     doctor.add_argument("--config")
     doctor.add_argument("--server-host")
     doctor.add_argument("--server-port", type=int, default=44091)
@@ -250,7 +255,9 @@ def main() -> None:
     server.set_defaults(func=_server)
 
     sim = sub.add_parser("sim", help="run the built-in RoboTwin-compatible simulation")
+    sim.add_argument("--model", default="mock", choices=model_registry.names())
     sim.add_argument("--config")
+    sim.add_argument("--default-config", default="mock.example.json")
     sim.add_argument("--host", default="127.0.0.1")
     sim.add_argument("--port", type=int, default=44091)
     sim.add_argument("--steps", type=int, default=8)
