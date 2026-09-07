@@ -21,9 +21,16 @@ test = ["pytest>=8"]
 [project.scripts]
 embodied-infer-server = "embodied_infer_deploy.server:main"
 embodied-infer-smoke = "embodied_infer_deploy.smoke:main"
+embodied-infer-robotwin = "embodied_infer_deploy.simulators.robotwin.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "python"}
 
 [tool.setuptools.packages.find]
 where = ["python"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python", "tests/simulators"]
+markers = [
+    "robotwin: requires an external RoboTwin simulator installation",
+]

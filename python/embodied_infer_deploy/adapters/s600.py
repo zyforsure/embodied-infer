@@ -8,7 +8,11 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from .robotwin import MODEL_STATE_DIM, MODEL_STATE_INDEX, RAW_STATE_DIM
+from ..robots import DAZZ_S600_CONTRACT
+
+RAW_STATE_DIM = DAZZ_S600_CONTRACT.raw_state_dim
+MODEL_STATE_DIM = DAZZ_S600_CONTRACT.model_dim
+MODEL_STATE_INDEX = np.asarray(DAZZ_S600_CONTRACT.model_state_indices)
 
 
 class S600Adapter:
@@ -25,30 +29,20 @@ class S600Adapter:
 
     @staticmethod
     def validate_raw_state(state: Any) -> np.ndarray:
-        state = np.asarray(state, dtype=np.float32).reshape(-1)
-        if state.shape != (RAW_STATE_DIM,) or not np.isfinite(state).all():
+        try:
+            return DAZZ_S600_CONTRACT.validate_raw_state(state)
+        except ValueError as exc:
             raise ValueError(
                 f"S600 raw state must contain {RAW_STATE_DIM} finite values"
-            )
-        return np.ascontiguousarray(state)
+            ) from exc
 
     @staticmethod
     def state_to_model_order(state: Any) -> np.ndarray:
-        raw = S600Adapter.validate_raw_state(state)
-        return np.ascontiguousarray(raw[MODEL_STATE_INDEX], dtype=np.float32)
+        return DAZZ_S600_CONTRACT.state_to_model(state)
 
     @staticmethod
     def actions_to_raw_order(actions: Any, current_state: Any) -> np.ndarray:
-        actions = np.asarray(actions, dtype=np.float32)
-        if (actions.ndim != 2 or actions.shape[1] != MODEL_STATE_DIM or
-                not np.isfinite(actions).all()):
-            raise ValueError(
-                f"model actions must have finite shape [T,{MODEL_STATE_DIM}]"
-            )
-        current = S600Adapter.validate_raw_state(current_state)
-        raw = np.repeat(current[None, :], actions.shape[0], axis=0)
-        raw[:, MODEL_STATE_INDEX] = actions
-        return np.ascontiguousarray(raw, dtype=np.float32)
+        return DAZZ_S600_CONTRACT.actions_to_raw(actions, current_state)
 
     @staticmethod
     def _image(value: Any) -> np.ndarray:

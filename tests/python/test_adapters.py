@@ -48,6 +48,7 @@ class AdapterTests(unittest.TestCase):
         np.testing.assert_array_equal(action["left_ee_joint_state"], [7])
         np.testing.assert_array_equal(action["right_arm_joint_state"], np.arange(8, 15))
         np.testing.assert_array_equal(action["right_ee_joint_state"], [15])
+        np.testing.assert_array_equal(action["raw_action"], np.arange(18))
 
 
 if __name__ == "__main__":

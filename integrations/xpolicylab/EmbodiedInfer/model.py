@@ -4,8 +4,11 @@ import os
 
 from XPolicyLab.model_template import ModelTemplate
 
-from embodied_infer_deploy.adapters import RobotTwinAdapter
 from embodied_infer_deploy.client import InferenceClient
+from embodied_infer_deploy.simulators.robotwin import (
+    RemoteRoboTwinPolicy,
+    RoboTwinAdapter,
+)
 
 
 class Model(ModelTemplate):
@@ -20,12 +23,10 @@ class Model(ModelTemplate):
             api_key=os.getenv(api_key_env),
             request_timeout=float(model_cfg.get("timeout", 10.0)),
         )
-        self.adapter = RobotTwinAdapter(
+        self.adapter = RoboTwinAdapter(
             self.client,
             default_instruction=str(model_cfg.get("default_instruction", "")),
         )
-        self.current = None
-        self.control_step = 0
         self.exec_horizon = int(model_cfg.get("exec_horizon", 1))
         if self.exec_horizon < 1:
             raise ValueError("exec_horizon must be positive")
@@ -41,31 +42,25 @@ class Model(ModelTemplate):
                 "RoboTwin requires raw/model dimensions 18/14 -> 18/14, "
                 f"got {metadata}"
             )
+        self.policy = RemoteRoboTwinPolicy(
+            self.adapter,
+            exec_horizon=self.exec_horizon,
+            timeout=float(model_cfg.get("timeout", 10.0)),
+        )
 
     def update_obs(self, obs):
-        self.current = obs
+        self.policy.update_obs(obs)
 
     def update_obs_batch(self, obs_list):
         if len(obs_list) != 1:
             raise ValueError("EmbodiedInfer XPolicyLab plugin supports batch size 1")
-        self.current = obs_list[0]
+        self.policy.update_obs(obs_list[0])
 
     def reset(self):
-        self.current = None
-        self.control_step = 0
-        self.client.reset()
+        self.policy.reset()
 
     def get_action(self):
-        if self.current is None:
-            raise RuntimeError("update_obs must be called before get_action")
-        response = self.adapter.infer(
-            self.current,
-            control_step=self.control_step,
-            timeout=float(self.config.get("timeout", 10.0)),
-        )
-        actions = response["raw_actions"][:self.exec_horizon]
-        self.control_step += len(actions)
-        return [self.adapter.action_dict(action) for action in actions]
+        return self.policy.get_action()
 
     def get_action_batch(self, env_idx_list=None):
         indices = env_idx_list or [0]

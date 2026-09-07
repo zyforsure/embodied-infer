@@ -7,7 +7,7 @@ does not replace the tested S600 safety wrapper or the RoboTwin simulator.
 
 ```text
 RTX 4090 (RoboTwin/SAPIEN)
-  XPolicyLab / embodied-infer RobotTwinAdapter
+  XPolicyLab / embodied-infer RoboTwinAdapter
                 |
                 | WebSocket + MessagePack, default port 44091
                 v
@@ -44,7 +44,7 @@ experiment that produced NaNs.
 cd /home/nvidia/embodied-infer
 python3 -m pip install -e .
 python3 -m embodied_infer_deploy.server \
-  --backend-factory embodied_infer_deploy.backends.turbovla_trt:create_backend \
+  --model turbovla-tensorrt \
   --backend-config config/orin-turbovla.example.json \
   --host 0.0.0.0 --port 44091
 ```
@@ -60,6 +60,8 @@ Expected metadata is `raw_state_dim=18`, `model_state_dim=14`,
 `raw_action_dim=18`, `model_action_dim=14`, `action_horizon=50`, and camera
 order `head,left_wrist,right_wrist`. The legacy `state_dim` and `action_dim`
 aliases describe the 14D tensors carried between the adapter and model server.
+`robot_command_dim=16` distinguishes the currently executable RoboTwin qpos
+fields from the complete reconstructed 18D raw target.
 
 ## 2. RoboTwin on RTX 4090
 
@@ -107,7 +109,7 @@ S600 IP and paths, then expose it through the new versioned WebSocket boundary:
 
 ```bash
 python -m embodied_infer_deploy.server \
-  --backend-factory embodied_infer_deploy.backends.s600_hbm_remote:create_backend \
+  --model turbovla-s600-remote \
   --backend-config config/s600-hbm-remote.example.json \
   --host 0.0.0.0 --port 44091
 ```
@@ -126,6 +128,13 @@ use `config/s600-hbm-direct.example.json` with the direct backend. This avoids
 the 4090 gateway but requires importing the existing real-robot script and its
 vendor runtime in the server process. It is intended for later latency tuning,
 not the first safety validation.
+
+```bash
+python -m embodied_infer_deploy.server \
+  --model turbovla-s600-hbm \
+  --backend-config config/s600-hbm-direct.example.json \
+  --host 0.0.0.0 --port 44091
+```
 
 ## 5. Measurements and acceptance gates
 

@@ -14,3 +14,13 @@ tokenizers, normalization statistics, API keys, or robot logs.
 TurboVLA configs expose an 18D robot/simulator contract and a 14D model
 contract. These dimensions are fixed by the checked adapter mapping, not by an
 implicit truncate or reshape operation.
+
+Select a config through the model registry, for example:
+
+```bash
+python -m embodied_infer_deploy.server \
+  --model turbovla-tensorrt \
+  --backend-config config/orin-turbovla.example.json
+```
+
+Run `python -m embodied_infer_deploy.server --list-models` to list built-ins.

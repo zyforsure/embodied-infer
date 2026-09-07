@@ -36,6 +36,9 @@ protocol for you.
 - `ActionBuffer` for receding-horizon execution and newest-chunk-wins merging;
 - zero mandatory third-party dependencies;
 - installable CMake target `embodied::infer`;
+- lazy Python model registry with one directory per model family and external
+  entry-point support;
+- RoboTwin closed-loop integration tests at the 18D raw robot boundary;
 - Linux, macOS, and Windows CI plus sanitizer coverage.
 
 ## Architecture
@@ -110,6 +113,8 @@ auto result = scheduler.submit(std::move(obs), options).get();
 
 See [`examples/demo.cpp`](examples/demo.cpp) for the runnable loop and
 [`docs/backend-guide.md`](docs/backend-guide.md) for a real backend template.
+See [`docs/architecture.md`](docs/architecture.md) for the model directory,
+plugin, robot contract, and simulator testing boundaries.
 
 For the existing RTX 4090 RoboTwin, Jetson AGX Orin TensorRT, and S600 HBM
 deployments, see [`docs/deployment.md`](docs/deployment.md). The Python

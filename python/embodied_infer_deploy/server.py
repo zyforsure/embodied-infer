@@ -14,6 +14,7 @@ from typing import Any
 
 from websockets.sync.server import serve
 
+from .models import create_model, model_registry
 from .protocol import (
     ProtocolError,
     decode_message,
@@ -114,22 +115,37 @@ class InferenceServer:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--backend-factory",
-        default="embodied_infer_deploy.backends.turbovla_trt:create_backend",
+    backend = parser.add_mutually_exclusive_group()
+    backend.add_argument(
+        "--model",
+        help="registered model name; use --list-models to inspect names",
     )
-    parser.add_argument("--backend-config", required=True)
+    backend.add_argument(
+        "--backend-factory",
+        help="legacy or custom module:callable factory",
+    )
+    parser.add_argument("--backend-config")
+    parser.add_argument("--list-models", action="store_true")
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=44090)
+    parser.add_argument("--port", type=int, default=44091)
     parser.add_argument("--api-key-env", default="EMBODIED_INFER_API_KEY")
     args = parser.parse_args()
 
+    if args.list_models:
+        print("\n".join(model_registry.names()))
+        return
+    if not args.backend_config:
+        parser.error("--backend-config is required unless --list-models is used")
     config = json.loads(Path(args.backend_config).read_text(encoding="utf-8"))
-    backend = load_factory(args.backend_factory)(config)
-    application = InferenceServer(backend, api_key=os.getenv(args.api_key_env))
+    model_backend = (
+        load_factory(args.backend_factory)(config)
+        if args.backend_factory
+        else create_model(args.model or "turbovla-tensorrt", config)
+    )
+    application = InferenceServer(model_backend, api_key=os.getenv(args.api_key_env))
     print(
         f"embodied-infer server listening on {args.host}:{args.port} "
-        f"backend={backend.metadata.get('backend')}",
+        f"backend={model_backend.metadata.get('backend')}",
         flush=True,
     )
     with serve(

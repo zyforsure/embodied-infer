@@ -1,23 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+"""Compatibility imports; use embodied_infer_deploy.core for new code."""
 
-import numpy as np
+from ..core import BackendResult, ModelBackend
 
+Backend = ModelBackend
 
-@dataclass
-class BackendResult:
-    actions: np.ndarray
-    representation: str = "absolute"
-    control_period_ns: int = 0
-    timing: dict[str, float] = field(default_factory=dict)
-
-
-class Backend(Protocol):
-    @property
-    def metadata(self) -> dict[str, Any]: ...
-
-    def infer(self, request: dict[str, Any]) -> BackendResult: ...
-
-    def reset(self) -> None: ...
+__all__ = ["Backend", "BackendResult"]
