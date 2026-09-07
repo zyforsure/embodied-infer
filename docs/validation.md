@@ -12,7 +12,8 @@ The following read-only checks were run from the development workstation on
 | A800 Pi05 OpenPI `172.16.0.23:8012` | Pass | Updated `Pi05RemoteBackend` completed a real cross-host request and returned finite `(16,14)` actions; first request was about 24.9 s including accelerator warm-up. |
 | A800 Pi05 + RoboTwin adapter | Pass (smoke) | Two real demo-environment control steps completed through the A800 Pi05 service; actions were reconstructed to finite 16D qpos. |
 | S100/S600 HBM endpoint `192.168.10.252:5702` | Pass (service smoke) | Three zero-input length-prefixed NPZ requests returned finite `(1,50,14)` actions; measured round trips were about 4.53 s. Existing deployment notes use this address for both S100 and S600 paths, so board identity is not inferred from the shared endpoint. |
-| Pi05 local HBM on Orin/S100/S600 | Blocked | Reachable services expose TurboVLA contracts; no Pi05 Gemma LLM/Action Expert HBM files or board-side Pi05 runtime/server contract were found. SSH key login is unavailable for the reachable boards, so deployment cannot be performed without board credentials and artifacts. |
+| Pi05 HBM artifacts on RTX 4090 | Pass (compile evidence) | The 4090 `pi05_qat` environment has `leap_llm`; shared storage contains `pi05_gemma_llm_ptq.hbm` (about 2.9 GB), `pi05_gemma_expert_ptq.hbm` (about 441 MB), and `pi05_siglip_ptq.hbm` (about 425 MB). The recorded `hb_compile` logs end with successful `compile_hbo`/`link_models` for the LLM and Expert graphs. |
+| Pi05 local HBM on Orin/S100/S600 | Blocked | The artifacts now exist on the 4090 shared storage, but no board-side Pi05 HBM server contract or credentials for Orin/S100/S600 deployment are available. Existing reachable endpoints expose TurboVLA contracts, not the Pi05 Gemma/Expert graph interface. |
 | New embodied-infer service `:44091` on Orin | Not started | Port is closed; SSH key authentication is required to deploy the new service. |
 
 The S600 adapter test above validates transport, tensor shapes, inference, and
@@ -22,12 +23,14 @@ the Linux RoboTwin/SAPIEN environment. The existing Orin service uses the
 legacy WebSocket protocol on `44090`; the new versioned protocol intentionally
 uses `44091` to avoid taking over that service.
 
-The Pi05 rows use the official OpenPI WebSocket service and a deterministic
-RoboTwin-compatible demo environment; they do not claim that Pi05 LLM and
-action-expert graphs have been converted to HBM. The separately compiled A800
-Vision HBM artifact is recorded in the deployment notes.
+The Pi05 OpenPI rows use the official WebSocket service and a deterministic
+RoboTwin-compatible demo environment. They are separate from the HBM artifact
+check above. HBM compilation is now evidenced for Vision/SigLIP, Gemma LLM,
+and the action expert on the 4090; board execution still requires the matching
+HBRT runtime and a Pi05-specific server that wires vision tokens, KV caches,
+and the 16x16 native action head.
 
 The Orin and S100/S600 rows above validate the currently deployed TurboVLA
 services, not a Pi05 HBM port. A Pi05 local-HBM acceptance row requires the
-Pi05 LLM/action-expert HBM runtime and a board-side server contract; those
-artifacts are not present on the reachable boards yet.
+three HBM files to be copied to the target board, successful HBRT load/execute
+of all graphs, and a RoboTwin closed-loop request through the Pi05 server.
