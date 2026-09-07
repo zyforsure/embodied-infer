@@ -10,6 +10,13 @@ tokens, action expert, and action projection. The request scheduler remains
 the outer control-loop queue; the operator scheduler is bounded, device-aware
 parallelism inside one inference request.
 
+The final hardware boundary is typed separately in `hardware_output.hpp`. It
+supports joint position, joint torque, joint position+torque, end-effector pose
+(`[x,y,z,qx,qy,qz,qw]`), and end-effector pose+joint torque. The adapter checks
+dimensions, finite values, frame, control mode, and non-zero quaternions before
+a robot plugin serializes the command for CAN, EtherCAT, ROS 2, or a simulator.
+Inverse kinematics and device calibration remain plugin responsibilities.
+
 ```text
 RoboTwin / S600 / another embodiment
                  |

@@ -208,6 +208,34 @@ void test_operator_scheduler() {
     CHECK(bad.status().code() == ei::StatusCode::invalid_argument);
 }
 
+void test_hardware_outputs() {
+    ei::HardwareOutputAdapter joints({ei::HardwareOutputType::joint,
+                                      ei::HardwareControlMode::position_torque,
+                                      2, "base"});
+    ei::ActionChunk joint_chunk;
+    joint_chunk.steps = 1;
+    joint_chunk.action_dim = 4;
+    joint_chunk.values = {0.1F, 0.2F, 1.0F, 2.0F};
+    auto joint = joints.encode(joint_chunk, 0, 10);
+    CHECK(joint.ok());
+    CHECK(joint.value().primary.size() == 2);
+    CHECK(joint.value().torque.size() == 2);
+
+    ei::HardwareOutputAdapter pose({ei::HardwareOutputType::end_effector_pose,
+                                    ei::HardwareControlMode::position,
+                                    7, "left_base"});
+    ei::ActionChunk pose_chunk;
+    pose_chunk.steps = 1;
+    pose_chunk.action_dim = 7;
+    pose_chunk.values = {0.0F, 0.1F, 0.2F, 0.0F, 0.0F, 0.0F, 1.0F};
+    auto command = pose.encode(pose_chunk, 0, 11);
+    CHECK(command.ok());
+    CHECK(command.value().primary.size() == 7);
+
+    pose_chunk.values[6] = 0.0F;
+    CHECK(!pose.encode(pose_chunk, 0, 11).ok());
+}
+
 }  // namespace
 
 int main() {
@@ -217,6 +245,7 @@ int main() {
     test_action_buffer();
     test_scheduler_overflow();
     test_operator_scheduler();
+    test_hardware_outputs();
 
     if (failures != 0) {
         std::cerr << failures << " test checks failed\n";

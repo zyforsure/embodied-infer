@@ -14,6 +14,7 @@ add_library(embodied_infer
     src/processors.cpp
     src/scheduler.cpp
     src/operator_scheduler.cpp
+    src/hardware_output.cpp
 )
 add_library(embodied::infer ALIAS embodied_infer)
 set_target_properties(embodied_infer PROPERTIES EXPORT_NAME infer)

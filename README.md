@@ -68,6 +68,11 @@ The core intentionally does not depend on ROS, gRPC, CUDA, or a model library.
 Adapters own those dependencies and translate into `Observation`; backends own
 tensor-engine details and return `ActionChunk`.
 
+The hardware output layer is explicit about actuator semantics: it can emit
+joint positions, joint torques, position+torque commands, end-effector poses,
+or poses with joint torques. Every command is dimension-checked and finite
+before reaching a device-specific CAN/EtherCAT/ROS adapter.
+
 ## End-to-end inference framework
 
 The deployable system is organized as five layers. A service may run on the
