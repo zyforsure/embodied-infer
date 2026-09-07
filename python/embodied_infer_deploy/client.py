@@ -14,7 +14,9 @@ from .protocol import (
     decode_message,
     encode_message,
     make_infer_request,
+    make_health_request,
     parse_action_response,
+    parse_health_response,
 )
 
 
@@ -56,6 +58,14 @@ class InferenceClient:
             response = decode_message(self._connection.recv(timeout=self.request_timeout))
             if response.get("type") != "reset_ok":
                 raise ProtocolError(str(response.get("message", "reset failed")))
+
+    def health(self) -> dict[str, Any]:
+        """Return readiness and monotonic service counters."""
+        with self._lock:
+            self._ensure_connected_locked()
+            self._connection.send(encode_message(make_health_request()))
+            response = decode_message(self._connection.recv(timeout=self.request_timeout))
+            return parse_health_response(response)
 
     def infer(
         self,

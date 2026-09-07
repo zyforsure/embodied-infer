@@ -10,8 +10,10 @@ from embodied_infer_deploy.protocol import (
     encode_message,
     make_action_response,
     make_infer_request,
+    make_health_request,
     pack_array,
     parse_action_response,
+    parse_health_response,
     parse_infer_request,
     unpack_array,
 )
@@ -81,6 +83,25 @@ class ProtocolTests(unittest.TestCase):
                 state=np.zeros(14, dtype=np.float32),
                 timeout_ms=float("nan"),
             )
+
+    def test_health_round_trip(self):
+        request = make_health_request(3)
+        self.assertEqual(request["type"], "health")
+        response = {
+            "protocol": PROTOCOL_VERSION,
+            "type": "health",
+            "request_id": 3,
+            "status": "ready",
+            "uptime_ms": 12.5,
+            "requests_total": 4,
+            "requests_failed": 0,
+            "metadata": {"model": "mock"},
+        }
+        parsed = parse_health_response(
+            decode_message(encode_message(response))
+        )
+        self.assertEqual(parsed["status"], "ready")
+        self.assertEqual(parsed["metadata"]["model"], "mock")
 
 
 if __name__ == "__main__":

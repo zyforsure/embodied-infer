@@ -109,6 +109,35 @@ def make_hello(metadata: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def make_health_request(request_id: int = 0) -> dict[str, Any]:
+    """Create a lifecycle/readiness probe for a running inference service."""
+    if not isinstance(request_id, int) or request_id < 0:
+        raise ProtocolError("request_id must be a non-negative integer")
+    return {
+        "protocol": PROTOCOL_VERSION,
+        "type": "health",
+        "request_id": request_id,
+    }
+
+
+def parse_health_response(message: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate and return a service health response."""
+    if message.get("type") != "health":
+        raise ProtocolError("message is not a health response")
+    status = message.get("status")
+    if status not in {"starting", "ready", "draining", "stopped"}:
+        raise ProtocolError("health status is invalid")
+    if not isinstance(message.get("metadata"), Mapping):
+        raise ProtocolError("health metadata must be a map")
+    for key in ("uptime_ms", "requests_total", "requests_failed"):
+        value = message.get(key)
+        if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            raise ProtocolError(f"health field {key!r} is invalid")
+        if float(value) < 0:
+            raise ProtocolError(f"health field {key!r} must be non-negative")
+    return dict(message)
+
+
 def make_infer_request(
     *,
     request_id: int,

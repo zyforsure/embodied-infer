@@ -155,6 +155,8 @@ See [`examples/demo.cpp`](examples/demo.cpp) for the runnable loop and
 [`docs/backend-guide.md`](docs/backend-guide.md) for a real backend template.
 See [`docs/architecture.md`](docs/architecture.md) for the model directory,
 plugin, robot contract, and simulator testing boundaries.
+That document also defines the canonical 18D/14D/16D contracts, Pi05 operator
+DAG, request scheduling semantics, and the WebSocket `health` lifecycle probe.
 
 For the existing RTX 4090 RoboTwin, Jetson AGX Orin TensorRT, and S600 HBM
 deployments, see [`docs/deployment.md`](docs/deployment.md). The Python

@@ -1,5 +1,88 @@
 # Architecture
 
+## 统一分层（RoboTwin、真机与数据集）
+
+下面是当前实现采用的端到端边界。每一层只依赖下一层公开的类型契约，
+因此同一个 RoboTwin policy 可以切换 4090、Orin、S100、S600 或远程 Pi05，
+而不需要修改模型代码。
+
+```text
+RoboTwin / 真机 / 数据集
+        |
+        v
+具身适配层
+18D 原始状态 + 多相机
+        |
+        v
+服务层
+协议校验 / 鉴权 / metadata / 生命周期 / 监控
+        |
+        v
+请求调度层
+有界队列 / newest-wins / deadline
+        |
+        v
+Engine
+预处理 / Backend / 后处理 / 安全检查
+        |
+        v
+算子调度层
+图像预处理 -> Vision Encoder -> LLM -> Action Expert -> Projection
+        |
+        v
+动作适配层
+14D/16D 模型动作 -> 18D 原始动作 -> ActionBuffer
+        |
+        v
+RoboTwin / Orin / S100 / S600
+```
+
+### 层间 contract
+
+| 层 | 输入 | 输出 | 关键不变量 |
+| --- | --- | --- | --- |
+| 具身适配层 | RoboTwin observation、机器人反馈、数据集样本 | canonical observation | 原始 state 固定为 18D；相机规范名为 `head`、`left_wrist`、`right_wrist`；图像为 HWC RGB |
+| 服务层 | MessagePack `embodied-infer/1` | hello、health、action、error | 版本、尺寸、时间戳、有限值和鉴权先校验；hello 发布完整 `ModelSpec.metadata` |
+| 请求调度层 | canonical observation + deadline | 一个待执行请求 | C++ `Scheduler` 默认容量 1、`keep_latest`；过期请求在进入 backend 前取消 |
+| Engine | observation、取消 token、deadline | `ActionChunk` | 串行保护非重入 backend；执行 observation/action processor 和安全过滤 |
+| 算子调度层 | 一个模型请求的 operator DAG | stage outputs/timing | 按依赖调度 CPU/GPU/NPU/IO lane；失败和 deadline 向下游传播 |
+| 动作适配层 | 14D 或原生 16D chunk、当前 18D state | 18D raw target + executable command | 未建模坐标从当前反馈回填；输出进入 `ActionBuffer` 前做 finite、限位、跃变检查 |
+| 设备/仿真层 | 18D raw target 或 typed hardware command | RoboTwin、关节位置/力矩、末端位姿 | 不在模型 backend 中调用 CAN；真实运动必须由设备侧显式开启 |
+
+### Pi05 operator DAG
+
+Pi05 的 OpenPI 远程 backend 和本地 HBM backend 共用上面的请求与动作边界。
+本地 HBM 实现按以下依赖图执行，KV cache 只在 LLM/Action Expert 之间传递，
+不会泄漏到服务协议：
+
+```text
+decode/resize/normalize (CPU)
+          |
+          +--> SigLIP vision encoder (GPU/NPU) --+
+          |                                      |
+tokenize(prompt) (CPU) --------------------------+--> Gemma LLM (NPU)
+                                                 |
+                          state + noisy action + KV cache
+                                                 v
+                                      Action Expert (NPU)
+                                                 |
+                                      16D native action
+                                                 v
+                                  Projection / safety (CPU)
+```
+
+服务层只需要知道 `model_action_dim`（Pi05 共享 contract 为 14，原生 head
+可为 16）和 `action_horizon`；具体 HBM tensor 名称、量化和 runtime 由
+`models/pi05/` 实现负责。
+
+### 服务生命周期与监控
+
+WebSocket 建连后服务先发送 `hello`。客户端可发送 `type=health` 获取
+`status`（`starting|ready|draining|stopped`）、`uptime_ms`、成功/失败请求计数
+和同一份 metadata；`type=reset` 用于清理 backend 状态。推理响应带有
+`server_queue_ms`、`server_total_ms` 以及 backend stage timing，便于区分
+排队、预处理、模型执行和仿真耗时。
+
 The repository separates model execution, robot semantics, simulator parsing,
 transport, and scheduling. A model implementation must never need to import
 RoboTwin or a CAN vendor SDK.

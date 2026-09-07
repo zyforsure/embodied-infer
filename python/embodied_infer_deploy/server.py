@@ -41,6 +41,22 @@ class InferenceServer:
         self.backend = backend
         self.api_key = api_key
         self._backend_lock = threading.Lock()
+        self._stats_lock = threading.Lock()
+        self._started = time.monotonic()
+        self._requests_total = 0
+        self._requests_failed = 0
+
+    def _health(self) -> dict[str, Any]:
+        with self._stats_lock:
+            return {
+                "protocol": "embodied-infer/1",
+                "type": "health",
+                "status": "ready",
+                "uptime_ms": (time.monotonic() - self._started) * 1000.0,
+                "requests_total": self._requests_total,
+                "requests_failed": self._requests_failed,
+                "metadata": dict(self.backend.metadata),
+            }
 
     def _validate_shapes(self, request, actions=None) -> None:
         metadata = self.backend.metadata
@@ -74,6 +90,9 @@ class InferenceServer:
             try:
                 message = decode_message(payload)
                 request_id = int(message.get("request_id", 0))
+                if message.get("type") == "health":
+                    websocket.send(encode_message(self._health()))
+                    continue
                 if message.get("type") == "reset":
                     with self._backend_lock:
                         self.backend.reset()
@@ -103,11 +122,19 @@ class InferenceServer:
                     control_period_ns=result.control_period_ns,
                     timing=timing,
                 )
+                with self._stats_lock:
+                    self._requests_total += 1
             except ProtocolError as exc:
+                with self._stats_lock:
+                    self._requests_failed += 1
                 response = make_error(str(exc), request_id, "invalid_request")
             except TimeoutError as exc:
+                with self._stats_lock:
+                    self._requests_failed += 1
                 response = make_error(str(exc), request_id, "deadline_exceeded")
             except Exception as exc:
+                with self._stats_lock:
+                    self._requests_failed += 1
                 traceback.print_exc()
                 response = make_error(str(exc), request_id, "backend_error")
             websocket.send(encode_message(response))
