@@ -14,14 +14,17 @@ pi05_gemma_llm_ptq.hbm      # language prefix + KV-cache outputs
 pi05_gemma_expert_ptq.hbm   # action expert / denoising step
 ```
 
-The recorded compile logs show the following graph contracts:
+The 4090-side HBM header inspection shows the following graph contracts:
 
-- LLM input tensors include token IDs `[1,200]`, visual prefix `[1,408,2048]`,
-  image features `[1,1,608,608]`, position IDs `[1,608]`, and a float mask;
-  it returns the prefix hidden state plus 36 KV-cache tensors.
-- Expert input tensors include state `[1,32]`, noisy actions `[1,50,32]`, a
-  timestep scalar, prefix mask `[1,1,50,658]`, and 36 KV-cache tensors; it
-  returns `[1,50,32]` velocity.
+- SigLIP takes image `[1,3,224,224]` (FP16) and token IDs `[1,256]` (INT64),
+  and returns visual tokens `[1,136,2048]` (FP16).
+- LLM takes token IDs `[1,200]` (INT32), visual prefix `[1,408,2048]`
+  (FP16), image features `[1,1,608,608]` (FP16), position IDs `[1,608]`
+  (INT32), and a float mask `[1,608]`; it returns `[1,608,2048]` plus 36
+  KV-cache tensors of shape `[1,608,256]`.
+- Expert takes state `[1,32]`, noisy actions `[1,50,32]`, timestep `[1]`,
+  prefix mask `[1,1,50,658]`, position IDs `[1,50]`, and 36 KV-cache tensors
+  of shape `[1,608,256]`; it returns velocity `[1,50,32]`.
 - The native policy head is 16 action dimensions. The shared runtime adapter
   projects the native result to the configured 14D model contract and then
   reconstructs the raw 18D robot command.
