@@ -1,0 +1,14 @@
+{
+  "model_name": "Pi05-HBM-S100",
+  "vision_hbm": "/dev/shm/pi05_hbm/pi05_siglip_ptq.hbm",
+  "llm_hbm": "/dev/shm/pi05_hbm/pi05_gemma_llm_ptq.hbm",
+  "expert_hbm": "/dev/shm/pi05_hbm/pi05_gemma_expert_ptq.hbm",
+  "expected_march": "nash-e",
+  "load_on_init": true,
+  "raw_state_dim": 18,
+  "model_state_dim": 14,
+  "raw_action_dim": 18,
+  "model_action_dim": 14,
+  "action_horizon": 16,
+  "camera_order": ["head", "left_wrist", "right_wrist"]
+}

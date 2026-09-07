@@ -78,6 +78,14 @@ model_registry.register(
     "embodied_infer_deploy.models.pi05.remote:create_backend",
 )
 model_registry.register(
+    "pi05-cpp",
+    "embodied_infer_deploy.models.pi05.cpp:create_backend",
+)
+model_registry.register(
+    "pi05-hbm",
+    "embodied_infer_deploy.models.pi05.hbm:create_backend",
+)
+model_registry.register(
     "turbovla-s600-hbm",
     "embodied_infer_deploy.models.turbovla.s600_hbm:create_backend",
 )

@@ -1,0 +1,18 @@
+{
+  "address": "tcp://192.168.10.162:5555",
+  "model_name": "Pi05-EmbodiedCpp-Orin",
+  "raw_state_dim": 18,
+  "model_state_dim": 14,
+  "raw_action_dim": 18,
+  "model_action_dim": 14,
+  "native_action_dim": 16,
+  "action_horizon": 16,
+  "server_state_dim": 32,
+  "server_action_dim": 32,
+  "server_horizon": 40,
+  "camera_order": ["head", "left_wrist", "right_wrist"],
+  "control_period_ns": 100000000,
+  "timeout_ms": 120000,
+  "require_tokens": false,
+  "fallback_lang_length": 4
+}

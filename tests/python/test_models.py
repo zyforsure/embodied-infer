@@ -6,6 +6,8 @@ from embodied_infer_deploy.core import ModelBackend, ModelSpec
 from embodied_infer_deploy.models import ModelRegistry, create_model, model_registry
 from embodied_infer_deploy.models.turbovla.common import turbovla_spec
 import embodied_infer_deploy.models.pi05.remote as pi05_remote
+import embodied_infer_deploy.models.pi05.cpp as pi05_cpp
+from embodied_infer_deploy.models.pi05.hbm import Pi05HbmBackend
 
 
 class ModelContractTests(unittest.TestCase):
@@ -19,6 +21,8 @@ class ModelContractTests(unittest.TestCase):
                 "turbovla-s100-remote",
                 "turbovla-tensorrt",
                 "pi05-remote",
+                "pi05-cpp",
+                "pi05-hbm",
             },
         )
 
@@ -110,6 +114,24 @@ class ModelContractTests(unittest.TestCase):
             self.assertEqual(connection.sent["prompt"], "pick up the block")
         finally:
             pi05_remote.connect = old_connect
+
+    def test_pi05_cpp_protocol_schema_and_contract(self):
+        Image, Request, Response = pi05_cpp._proto_classes()
+        req = Request(request_id=7, language_text="test")
+        self.assertEqual(req.request_id, 7)
+        self.assertEqual(Response().action_dim, 0)
+        backend = pi05_cpp.create_backend({"address": "tcp://127.0.0.1:1"})
+        self.assertEqual(backend.spec.backend, "pi05-cpp-zmq")
+        backend.close()
+
+    def test_pi05_hbm_reports_missing_artifacts(self):
+        backend = Pi05HbmBackend({
+            "vision_hbm": "/does/not/exist/vision.hbm",
+            "llm_hbm": "/does/not/exist/llm.hbm",
+            "expert_hbm": "/does/not/exist/expert.hbm",
+        })
+        self.assertFalse(backend.metadata["hbm_ready"])
+        self.assertIn("missing HBM files", backend.metadata["hbm_error"])
 
 
 if __name__ == "__main__":

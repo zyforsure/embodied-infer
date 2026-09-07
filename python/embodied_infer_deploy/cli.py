@@ -68,6 +68,8 @@ def _doctor(args: argparse.Namespace) -> int:
         "s600-direct": ("turbovla-s600-hbm", "s600-hbm-direct.example.json"),
         "s100": ("turbovla-s100-remote", "s100-hbm-remote.example.json"),
         "pi05": ("pi05-remote", "pi05-remote.example.json"),
+        "pi05-cpp": ("pi05-cpp", "pi05-cpp-orin.example.json"),
+        "pi05-hbm": ("pi05-hbm", "pi05-hbm-s100.example.json"),
     }
     model_name, default_config = defaults[profile]
     config_path = _config_path(args.config, default_config)
@@ -96,7 +98,7 @@ def _doctor(args: argparse.Namespace) -> int:
             host = str(config[host_key])
             port = int(config.get(port_key, 5702))
             check("hbm-service", _port_open(host, port), f"{host}:{port}")
-    if profile == "pi05":
+    if profile in ("pi05", "pi05-cpp"):
         host = str(config.get("host", "127.0.0.1"))
         port = int(config.get("port", 8000))
         check("pi05-service", _port_open(host, port), f"{host}:{port}")
@@ -164,7 +166,7 @@ def _sim(args: argparse.Namespace) -> int:
         client = _wait_client(args.host, args.port)
         environment = create_demo_env(episode_steps=args.steps, image_size=args.image_size)
         adapter = RoboTwinAdapter(client, default_instruction=args.instruction)
-        policy = RemoteRoboTwinPolicy(adapter, exec_horizon=1, timeout=2.0)
+        policy = RemoteRoboTwinPolicy(adapter, exec_horizon=1, timeout=float(args.timeout))
         executed = run_episode(environment, policy, action_transform=flatten_qpos_action)
         print(json.dumps({"mode": "demo", "executed_steps": executed,
                           "requests": executed, "metadata": client.metadata},
@@ -238,7 +240,7 @@ def main() -> None:
     models.set_defaults(func=lambda _args: (print("\n".join(model_registry.names())) or 0))
 
     doctor = sub.add_parser("doctor", help="check software, model files, and services")
-    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100", "pi05"), default="mock")
+    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100", "pi05", "pi05-cpp", "pi05-hbm"), default="mock")
     doctor.add_argument("--config")
     doctor.add_argument("--server-host")
     doctor.add_argument("--server-port", type=int, default=44091)
@@ -263,6 +265,8 @@ def main() -> None:
     sim.add_argument("--steps", type=int, default=8)
     sim.add_argument("--image-size", type=int, default=64)
     sim.add_argument("--instruction", default="move safely in the demo scene")
+    sim.add_argument("--timeout", type=float, default=10.0,
+                     help="per-inference timeout in seconds (remote Pi05 may need >2s)")
     sim.set_defaults(func=_sim)
 
     real = sub.add_parser("real", help="read-only S600 gateway and contract check")
