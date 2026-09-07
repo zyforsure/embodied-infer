@@ -81,6 +81,7 @@ class Pi05CppBackend:
         self.server_horizon = int(config.get("server_horizon", 50))
         self.tokenizer_path = config.get("tokenizer_path")
         self.require_tokens = bool(config.get("require_tokens", False))
+        self.server_arch = str(config.get("server_arch", "unknown"))
         self.token_ids = config.get("token_ids")
         self.fallback_lang_length = int(config.get("fallback_lang_length", 1))
         self.timeout_ms = int(config.get("timeout_ms", 900_000))
@@ -99,7 +100,9 @@ class Pi05CppBackend:
             camera_order=tuple(config.get("camera_order", ["head", "left_wrist", "right_wrist"])),
             action_representation="absolute", control_period_ns=int(config.get("control_period_ns", 100_000_000)),
             extras={"protocol": "embodied.cpp-vla/1", "native_action_dim": int(config.get("native_action_dim", 16)),
-                    "server_state_dim": self.server_state_dim, "server_action_dim": self.server_action_dim},
+                    "server_state_dim": self.server_state_dim, "server_action_dim": self.server_action_dim,
+                    "server_arch": self.server_arch,
+                    "model_identity_verified": self.server_arch in ("pi05", "pi0.5")},
         )
 
     @property

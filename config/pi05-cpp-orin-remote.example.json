@@ -1,5 +1,6 @@
 {
   "address": "tcp://192.168.10.162:5555",
+  "server_arch": "hy_vla",
   "model_name": "Pi05-EmbodiedCpp-Orin",
   "raw_state_dim": 18,
   "model_state_dim": 14,
