@@ -121,6 +121,38 @@ deployments, see [`docs/deployment.md`](docs/deployment.md). The Python
 deployment package is optional and keeps model-specific dependencies out of the
 C++ core.
 
+## Download and run
+
+The fastest end-to-end check requires no simulator, CUDA, or model download:
+
+```bash
+git clone https://github.com/zyforsure/embodied-infer.git
+cd embodied-infer
+python3 -m pip install -e .
+embodied-infer sim
+```
+
+If the Python scripts directory is not on `PATH`, the equivalent command is
+`python3 -m embodied_infer_deploy sim` (or `python -m embodied_infer_deploy sim`
+on Windows).
+
+Windows PowerShell users can run `.\scripts\install.ps1` first. The command
+starts a local mock inference server, drives the built-in RoboTwin-compatible
+environment, validates the 18D→14D→18D mapping, and exits with a JSON summary.
+Use `embodied-infer doctor --profile orin|s600-remote` before connecting to
+hardware. `embodied-infer real` is deliberately read-only; CAN motion is never
+enabled by a download or by a default command.
+
+For the actual simulator, replace the demo factory with RoboTwin's own factory:
+
+```bash
+embodied-infer robotwin --env-factory my_robotwin_entry:create_env \
+  --host 192.168.10.162 --port 44091 --exec-horizon 1
+```
+
+Platform-specific notes and private model-artifact configuration are in
+[`deploy/`](deploy/) and [`docs/deployment.md`](docs/deployment.md).
+
 That deployment has two intentionally different dimensionalities: the
 RoboTwin/S600 boundary is 18D, while the deployed TurboVLA engine consumes and
 produces 14D model tensors. The adapters perform the explicit 18-to-14 mapping

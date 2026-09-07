@@ -22,6 +22,7 @@ test = ["pytest>=8"]
 embodied-infer-server = "embodied_infer_deploy.server:main"
 embodied-infer-smoke = "embodied_infer_deploy.smoke:main"
 embodied-infer-robotwin = "embodied_infer_deploy.simulators.robotwin.cli:main"
+embodied-infer = "embodied_infer_deploy.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "python"}
