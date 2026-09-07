@@ -12,6 +12,7 @@ The following read-only checks were run from the development workstation on
 | A800 Pi05 OpenPI `172.16.0.23:8012` | Pass | Updated `Pi05RemoteBackend` completed a real cross-host request and returned finite `(16,14)` actions; first request was about 24.9 s including accelerator warm-up. |
 | A800 Pi05 + RoboTwin adapter | Pass (smoke) | Two real demo-environment control steps completed through the A800 Pi05 service; actions were reconstructed to finite 16D qpos. |
 | S100/S600 HBM endpoint `192.168.10.252:5702` | Pass (service smoke) | Three zero-input length-prefixed NPZ requests returned finite `(1,50,14)` actions; measured round trips were about 4.53 s. Existing deployment notes use this address for both S100 and S600 paths, so board identity is not inferred from the shared endpoint. |
+| Pi05 local HBM on Orin/S100/S600 | Blocked | Reachable services expose TurboVLA contracts; no Pi05 Gemma LLM/Action Expert HBM files or board-side Pi05 runtime/server contract were found. SSH key login is unavailable for the reachable boards, so deployment cannot be performed without board credentials and artifacts. |
 | New embodied-infer service `:44091` on Orin | Not started | Port is closed; SSH key authentication is required to deploy the new service. |
 
 The S600 adapter test above validates transport, tensor shapes, inference, and
