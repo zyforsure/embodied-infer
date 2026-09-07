@@ -15,6 +15,7 @@ class ModelContractTests(unittest.TestCase):
                 "mock",
                 "turbovla-s600-hbm",
                 "turbovla-s600-remote",
+                "turbovla-s100-remote",
                 "turbovla-tensorrt",
             },
         )

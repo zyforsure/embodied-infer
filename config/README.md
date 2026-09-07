@@ -6,6 +6,7 @@ The JSON files are templates, not credentials or model artifacts:
 - `s600-hbm-direct.example.json`: direct import of the verified S600 HBM
   runtime;
 - `s600-hbm-remote.example.json`: 4090 gateway to the existing S600 HBM server;
+- `s100-hbm-remote.example.json`: 4090 gateway to the S100 TurboVLA HBM server;
 - `mock.example.json`: local protocol smoke tests.
 
 Replace paths and addresses for your machine. Do not commit plans, HBM files,

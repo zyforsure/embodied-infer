@@ -81,6 +81,10 @@ model_registry.register(
     "turbovla-s600-remote",
     "embodied_infer_deploy.models.turbovla.s600_remote:create_backend",
 )
+model_registry.register(
+    "turbovla-s100-remote",
+    "embodied_infer_deploy.models.turbovla.s100_remote:create_backend",
+)
 
 
 def create_model(name: str, config: dict[str, Any]) -> ModelBackend:

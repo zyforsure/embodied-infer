@@ -1,4 +1,4 @@
-# Orin / S600 / RTX 4090 deployment
+# Orin / S600 / S100 / RTX 4090 deployment
 
 This guide maps the existing verified setup into the new runtime boundary. It
 does not replace the tested S600 safety wrapper or the RoboTwin simulator.
@@ -32,6 +32,17 @@ The previously validated services remain separate:
 The new protocol intentionally defaults to `44091` so a first smoke test cannot
 take over the old service. After parity is established, change the port or
 switch the RoboTwin policy configuration.
+
+## S100 HBM backend
+
+S100 is available as the explicit `turbovla-s100-remote` model. Its four-stage
+HBM service uses the same `[1,3,3,224,224]` image tensor, `[1,256]` text
+tensors, `[1,14]` state tensor, and `[1,50,14]` action output as the validated
+S600 service. Use `config/s100-hbm-remote.example.json` and keep the S100 HBM
+process on its own port (the existing deployment uses `5702`). The gateway
+proxy performs tokenizer/DINO preprocessing and then reuses the common
+18D/14D adapter, so RoboTwin can switch between S600 and S100 by changing only
+the registered model and endpoint config.
 
 ## 1. Orin TensorRT server
 

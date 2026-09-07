@@ -66,6 +66,7 @@ def _doctor(args: argparse.Namespace) -> int:
         "orin": ("turbovla-tensorrt", "orin-turbovla.example.json"),
         "s600-remote": ("turbovla-s600-remote", "s600-hbm-remote.example.json"),
         "s600-direct": ("turbovla-s600-hbm", "s600-hbm-direct.example.json"),
+        "s100": ("turbovla-s100-remote", "s100-hbm-remote.example.json"),
     }
     model_name, default_config = defaults[profile]
     config_path = _config_path(args.config, default_config)
@@ -85,10 +86,15 @@ def _doctor(args: argparse.Namespace) -> int:
         if key in config:
             path = Path(str(config[key])).expanduser()
             check(key, path.exists(), f"{path} ({'found' if path.exists() else 'missing'})")
-    if profile in ("s600-remote", "s600-direct") and config.get("s600_host"):
-        host = str(config["s600_host"])
-        port = int(config.get("s600_port", 5702))
-        check("s600-service", _port_open(host, port), f"{host}:{port}")
+    if profile in ("s600-remote", "s600-direct", "s100"):
+        host_key = "s100_host" if profile == "s100" else "s600_host"
+        port_key = "s100_port" if profile == "s100" else "s600_port"
+        if not config.get(host_key):
+            check("hbm-service", False, f"missing {host_key} in config")
+        else:
+            host = str(config[host_key])
+            port = int(config.get(port_key, 5702))
+            check("hbm-service", _port_open(host, port), f"{host}:{port}")
     if args.server_host:
         check("inference-service", _port_open(args.server_host, args.server_port),
               f"{args.server_host}:{args.server_port}")
@@ -227,7 +233,7 @@ def main() -> None:
     models.set_defaults(func=lambda _args: (print("\n".join(model_registry.names())) or 0))
 
     doctor = sub.add_parser("doctor", help="check software, model files, and services")
-    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct"), default="mock")
+    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100"), default="mock")
     doctor.add_argument("--config")
     doctor.add_argument("--server-host")
     doctor.add_argument("--server-port", type=int, default=44091)
