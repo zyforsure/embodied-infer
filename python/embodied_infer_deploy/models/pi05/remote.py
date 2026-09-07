@@ -76,7 +76,11 @@ class Pi05RemoteBackend:
         self.port = int(config.get("port", 8000))
         self.api_key = config.get("api_key")
         self.open_timeout = float(config.get("open_timeout", 10.0))
-        self.request_timeout = float(config.get("request_timeout", 120.0))
+        # A Pi05 action-expert request can legitimately take longer than the
+        # websocket library's 20 s keepalive window on a remote accelerator.
+        self.request_timeout = float(config.get("request_timeout", 300.0))
+        self.ping_interval = config.get("ping_interval", None)
+        self.ping_timeout = config.get("ping_timeout", None)
         self._lock = threading.RLock()
         self._connection = None
         self._metadata: dict[str, Any] = {}
@@ -87,7 +91,7 @@ class Pi05RemoteBackend:
             model_state_dim=int(config.get("model_state_dim", 14)),
             raw_action_dim=int(config.get("raw_action_dim", 18)),
             model_action_dim=int(config.get("model_action_dim", 14)),
-            action_horizon=int(config.get("action_horizon", 15)),
+            action_horizon=int(config.get("action_horizon", 16)),
             camera_order=tuple(config.get("camera_order", ["head", "left_wrist", "right_wrist"])),
             action_representation="absolute",
             control_period_ns=int(config.get("control_period_ns", 100_000_000)),
@@ -111,6 +115,8 @@ class Pi05RemoteBackend:
             f"ws://{self.host}:{self.port}",
             additional_headers=headers,
             open_timeout=self.open_timeout,
+            ping_interval=None if self.ping_interval is None else float(self.ping_interval),
+            ping_timeout=None if self.ping_timeout is None else float(self.ping_timeout),
             max_size=64 * 1024 * 1024,
             compression=None,
         )
@@ -139,6 +145,7 @@ class Pi05RemoteBackend:
         self.spec.validate_request(request)
         images = request["images"]
         observation = {
+            # The stock OpenPI server expects the post-repack observation map.
             "state": np.asarray(request["state"], dtype=np.float32),
             "images": {
                 "cam_high": _as_chw_uint8(images["head"]),
@@ -152,6 +159,11 @@ class Pi05RemoteBackend:
         actions = np.asarray(response.get("actions"), dtype=np.float32)
         if actions.ndim == 3 and actions.shape[0] == 1:
             actions = actions[0]
+        # Nero/Pi05 emits the 16-D RoboTwin command vector. The shared
+        # S600/TurboVLA contract exposes 14 model coordinates, so retain those
+        # coordinates here; the downstream adapter reconstructs held joints.
+        if actions.ndim == 2 and actions.shape[1] == 16 and self.spec.model_action_dim == 14:
+            actions = actions[:, :14]
         actions = self.spec.validate_actions(actions)
         timing = {"client_infer_ms": (time.perf_counter() - started) * 1000.0}
         server_timing = response.get("server_timing")

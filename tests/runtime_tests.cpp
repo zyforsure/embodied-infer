@@ -11,6 +11,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <atomic>
 
 namespace ei = embodied::infer;
 using namespace std::chrono_literals;
@@ -173,6 +174,40 @@ void test_scheduler_overflow() {
     CHECK(engine->metrics().dropped == 1);
 }
 
+void test_operator_scheduler() {
+    ei::OperatorGraph graph;
+    std::atomic<int> parallel{0};
+    std::atomic<int> peak{0};
+    const auto enter = [&] {
+        const auto now = ++parallel;
+        auto observed = peak.load();
+        while (observed < now && !peak.compare_exchange_weak(observed, now)) {
+        }
+    };
+    const auto leave = [&] { --parallel; };
+    const auto vision = graph.add({"vision", ei::OperatorDevice::gpu, 5, {}, [&] {
+        enter(); std::this_thread::sleep_for(5ms); leave(); return ei::Status::success();
+    }});
+    const auto proprio = graph.add({"proprio", ei::OperatorDevice::cpu, 1, {}, [&] {
+        enter(); std::this_thread::sleep_for(5ms); leave(); return ei::Status::success();
+    }});
+    graph.add({"fusion", ei::OperatorDevice::cpu, 10, {vision, proprio}, [&] {
+        return ei::Status::success();
+    }});
+    ei::OperatorScheduler scheduler({2, 1, 1, 1});
+    const auto result = scheduler.run(graph);
+    CHECK(result.ok());
+    CHECK(result.value().completed.size() == 3);
+    CHECK(result.value().peak_parallelism >= 2);
+
+    ei::OperatorGraph cycle;
+    cycle.add({"a", ei::OperatorDevice::cpu, 0, {1}, [] { return ei::Status::success(); }});
+    cycle.add({"b", ei::OperatorDevice::cpu, 0, {0}, [] { return ei::Status::success(); }});
+    const auto bad = scheduler.run(cycle);
+    CHECK(!bad.ok());
+    CHECK(bad.status().code() == ei::StatusCode::invalid_argument);
+}
+
 }  // namespace
 
 int main() {
@@ -181,6 +216,7 @@ int main() {
     test_action_processors();
     test_action_buffer();
     test_scheduler_overflow();
+    test_operator_scheduler();
 
     if (failures != 0) {
         std::cerr << failures << " test checks failed\n";

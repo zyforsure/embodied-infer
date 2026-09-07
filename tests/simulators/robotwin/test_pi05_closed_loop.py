@@ -20,7 +20,7 @@ class _FakePi05Connection:
         observation = pi05_remote._unpack(payload)
         self.observations.append(observation)
         state = np.asarray(observation["state"], dtype=np.float32)
-        actions = np.repeat(state[None, :], 15, axis=0)
+        actions = np.repeat(state[None, :], 16, axis=0)
         self.pending.append(pi05_remote._pack({"actions": actions}))
 
     def recv(self, timeout=None):

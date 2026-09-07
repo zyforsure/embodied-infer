@@ -35,6 +35,16 @@ Backend access is serialized because common inference contexts and GPU streams
 are not re-entrant. Parallelism should be expressed as multiple engines with
 separate backend contexts or by a batching backend.
 
+Model execution can also expose an operator DAG through `OperatorGraph` and
+`OperatorScheduler`. Each node declares dependencies, a priority, and a
+logical device lane (`cpu`, `gpu`, `npu`, or `io`). Ready nodes are dispatched
+in priority order while per-lane worker limits prevent concurrent use of a
+non-reentrant accelerator context. A failed, cancelled, or expired node stops
+the remaining graph and reports the node name with the failure status. This
+keeps vision preprocessing, encoder execution, language/action-expert stages,
+and postprocessing schedulable without coupling the core to CUDA, TensorRT, or
+HBRT APIs; model backends can map a lane to their own stream or runtime.
+
 ## Action execution
 
 User processors run in insertion order, followed by the built-in observation

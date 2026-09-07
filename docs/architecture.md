@@ -4,6 +4,12 @@ The repository separates model execution, robot semantics, simulator parsing,
 transport, and scheduling. A model implementation must never need to import
 RoboTwin or a CAN vendor SDK.
 
+Within a model backend, the optional operator scheduler runs the dependency
+graph for stages such as image decode/normalize, vision encoder, language
+tokens, action expert, and action projection. The request scheduler remains
+the outer control-loop queue; the operator scheduler is bounded, device-aware
+parallelism inside one inference request.
+
 ```text
 RoboTwin / S600 / another embodiment
                  |

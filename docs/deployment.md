@@ -19,9 +19,27 @@ S600 real robot (optional alternative backend)
                 ^
                 | existing length-prefixed NPZ protocol
                 |
-RTX 4090 gateway
+  RTX 4090 gateway
   embodied-infer s600-hbm-remote backend
 ```
+
+## Service-layer contract
+
+Each deployment has the same lifecycle and observability boundary:
+
+1. `server.py` loads a named backend from the lazy registry and publishes
+   metadata plus the inference WebSocket; process managers can expose
+   health/readiness probes around the service.
+2. The protocol layer validates version, request ID, camera names, 18D raw
+   state, and deadlines before entering the bounded request scheduler.
+3. A backend may use the operator DAG scheduler for device-aware execution;
+   service threads never call CUDA/HBM kernels directly.
+4. Responses include the action chunk, representation, control period, source
+   timestamp, and server timing. The client adapter reconstructs raw robot
+   coordinates and feeds the safety/action buffer.
+
+This lets the same RoboTwin client target a local mock, RTX 4090/Orin
+TensorRT, S100/S600 HBM, or the A800-hosted Pi05 OpenPI service.
 
 The previously validated services remain separate:
 
@@ -49,8 +67,9 @@ the registered model and endpoint config.
 Pi0.5 uses the OpenPI WebSocket protocol rather than the TurboVLA MessagePack
 schema. The `pi05-remote` backend translates the common RoboTwin request into
 OpenPI's `state`/`images`/`prompt` observation and validates the returned
-action chunk. The default Pi05 horizon is 15 and the default action width is
-14; both are explicit in `config/pi05-remote.example.json`.
+action chunk. The native Nero response is 16 steps by 16 dimensions; the
+backend projects it to the configured 14D model contract and reconstructs the
+raw command vector.
 
 ## 1. Orin TensorRT server
 

@@ -9,7 +9,8 @@ The adapter contract is explicit:
 
 - RoboTwin raw state/action: 18 dimensions;
 - Pi05 model state/action: 14 dimensions;
-- default action horizon: 15 steps;
+- native action horizon: 16 steps (the shared config defaults to 16);
+- native action width: 16, projected to the shared 14D model contract;
 - RoboTwin qpos command after reconstruction: 16 dimensions.
 
 Use `config/pi05-remote.example.json` as the gateway configuration template.

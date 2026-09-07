@@ -81,7 +81,7 @@ class ModelContractTests(unittest.TestCase):
             def send(self, payload):
                 self.sent = pi05_remote._unpack(payload)
                 self.messages.append(pi05_remote._pack({
-                    "actions": np.zeros((15, 14), dtype=np.float32),
+                    "actions": np.zeros((16, 14), dtype=np.float32),
                     "server_timing": {"infer_ms": 1.5},
                 }))
 
@@ -105,7 +105,7 @@ class ModelContractTests(unittest.TestCase):
                     "right_wrist": np.zeros((8, 8, 3), dtype=np.uint8),
                 },
             })
-            self.assertEqual(result.actions.shape, (15, 14))
+            self.assertEqual(result.actions.shape, (16, 14))
             self.assertEqual(connection.sent["images"]["cam_high"].shape, (3, 8, 8))
             self.assertEqual(connection.sent["prompt"], "pick up the block")
         finally:

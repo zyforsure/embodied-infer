@@ -68,6 +68,41 @@ The core intentionally does not depend on ROS, gRPC, CUDA, or a model library.
 Adapters own those dependencies and translate into `Observation`; backends own
 tensor-engine details and return `ActionChunk`.
 
+## End-to-end inference framework
+
+The deployable system is organized as five layers. A service may run on the
+4090 gateway, Orin, S100, or S600; the wire contract is the same while the
+model adapter and accelerator runtime remain device-specific.
+
+```text
+Robot / RoboTwin / dataset
+        |
+1. Embodiment adapter: raw 18D state + camera aliases -> observation
+        |
+2. Inference service: protocol/version, auth, IDs, metadata, metrics, lifecycle
+        |
+3. Request scheduler: bounded newest-wins queue -> Engine -> processors
+        |
+4. Operator scheduler: preprocessing -> vision -> language/action expert
+   dependency DAG with priority and CPU/GPU/NPU/IO lane limits
+        |
+5. Action adapter: model chunk -> raw 18D target -> ActionBuffer -> actuator
+```
+
+The service layer owns transport and lifecycle, not model tensors. The lazy
+registry loads only the selected family (`mock`, `turbovla`, or `pi05`), so an
+Orin process does not import S600 HBM libraries. Responses carry metadata,
+action shape, representation, timing, and request IDs, allowing one RoboTwin
+client to switch between TensorRT, HBM, and OpenPI services.
+
+For Pi05, the production path is an OpenPI WebSocket service on the model host.
+The backend repacks the canonical request into `state`, `images`, and `prompt`,
+disables websocket keepalive during long accelerator calls by default, and
+projects the native 16-step response to the shared 14D model contract. The
+A800 vision HBM artifact is compiled separately with `hb_compile`; LLM/action
+expert HBM remains an optional device-specific backend until its runtime and
+server contract are available.
+
 ## Build
 
 Requirements: CMake 3.20+ and a C++20 compiler.

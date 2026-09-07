@@ -13,6 +13,7 @@ add_library(embodied_infer
     src/mock_backend.cpp
     src/processors.cpp
     src/scheduler.cpp
+    src/operator_scheduler.cpp
 )
 add_library(embodied::infer ALIAS embodied_infer)
 set_target_properties(embodied_infer PROPERTIES EXPORT_NAME infer)
