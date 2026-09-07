@@ -111,6 +111,16 @@ auto result = scheduler.submit(std::move(obs), options).get();
 See [`examples/demo.cpp`](examples/demo.cpp) for the runnable loop and
 [`docs/backend-guide.md`](docs/backend-guide.md) for a real backend template.
 
+For the existing RTX 4090 RoboTwin, Jetson AGX Orin TensorRT, and S600 HBM
+deployments, see [`docs/deployment.md`](docs/deployment.md). The Python
+deployment package is optional and keeps model-specific dependencies out of the
+C++ core.
+
+That deployment has two intentionally different dimensionalities: the
+RoboTwin/S600 boundary is 18D, while the deployed TurboVLA engine consumes and
+produces 14D model tensors. The adapters perform the explicit 18-to-14 mapping
+and hold every coordinate not predicted by the model.
+
 ## Design choices from existing work
 
 The runtime was designed after examining:

@@ -1,5 +1,6 @@
 /build*/
 /install*/
+/stage/
 /.cache/
 /.tooling/
 /.idea/
@@ -7,3 +8,14 @@
 *.user
 *.swp
 compile_commands.json
+*.plan
+*.engine
+*.hbm
+*.safetensors
+*.pt
+*.pth
+*.onnx
+*.jsonl
+__pycache__/
+*.egg-info/
+.pytest_cache/

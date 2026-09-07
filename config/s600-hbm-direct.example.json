@@ -1,0 +1,8 @@
+{
+  "runtime_script": "/home/sunrise/yaoxing-data-collect-driver-s600/scripts/turbovla_real_robot_server.py",
+  "model_root": "/home/sunrise/zzyy/turboVLA/qat_vision_best_rest",
+  "assets": "/home/sunrise/yaoxing-data-collect-driver-s600/turbovla_runtime/assets",
+  "camera_order": ["head", "left_wrist", "right_wrist"],
+  "input_color": "rgb",
+  "control_period_ns": 50000000
+}

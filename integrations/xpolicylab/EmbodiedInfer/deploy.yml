@@ -1,0 +1,8 @@
+policy_name: EmbodiedInfer
+protocol: ws
+host: 192.168.10.162
+port: 44091
+timeout: 10.0
+exec_horizon: 1
+default_instruction: beat block hammer
+api_key_env: EMBODIED_INFER_API_KEY
