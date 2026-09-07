@@ -4,6 +4,14 @@ This document records the compiled artifacts without checking binary model
 files into Git. The artifacts are produced on the RTX 4090 in the
 `pi05_qat`/`leap_llm` environment and live on shared storage.
 
+The current shared-storage fingerprints are:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `pi05_siglip_ptq.hbm` | 444684936 | `f5c418121e83711919d515a07379aa63dc9a6cb9ca65125aa02bf6be3825dadf` |
+| `pi05_gemma_llm_ptq.hbm` | 3090784728 | `69c5f03148aa478086cbba6d7f4517a2f282cdf4c4b856a37109396cf8967a05` |
+| `pi05_gemma_expert_ptq.hbm` | 462292008 | `5a89ea25f50ee3c04720fe5e7b2a468826485b0018dfec922aa45d4392682d06` |
+
 ## Artifact set
 
 The complete Pi05 graph set is:
