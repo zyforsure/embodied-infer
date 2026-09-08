@@ -108,6 +108,20 @@ A800 vision HBM artifact is compiled separately with `hb_compile`; LLM/action
 expert HBM remains an optional device-specific backend until its runtime and
 server contract are available.
 
+## Repository layout
+
+```text
+include/       public C++ headers for the embodied::infer runtime
+src/           C++ runtime implementation
+python/        Python deployment package and CLI
+config/        example runtime profiles for mock, TurboVLA, Pi05, S100, S600
+deploy/        device-specific deployment notes and private model paths
+docs/          architecture, backend, deployment, and validation guides
+examples/      runnable C++ example
+integrations/  optional external-stack adapters
+tests/         C++, Python, and simulator tests
+```
+
 ## Build
 
 Requirements: CMake 3.20+ and a C++20 compiler.
