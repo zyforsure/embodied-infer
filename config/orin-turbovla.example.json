@@ -1,8 +1,8 @@
 {
-  "runtime_root": "/home/nvidia/turbovla_orin/runtime",
+  "runtime_root": "/home/nvidia/turbovla_orin",
   "engine": "/home/nvidia/turbovla_orin/artifacts/robotwin_finetune2k_ema_mixed_stable.plan",
-  "tokenizer": "/home/nvidia/models/bert-base-uncased",
-  "stats": "/home/nvidia/turbovla_orin/assets/dataset_statistics.json",
+  "tokenizer": "/home/nvidia/turbovla_orin/models/bert-base-uncased",
+  "stats": "/home/nvidia/turbovla_orin/models/dataset_statistics.json",
   "cuda_graph": false,
   "camera_order": ["head", "left_wrist", "right_wrist"],
   "control_period_ns": 100000000,

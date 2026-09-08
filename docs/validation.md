@@ -5,6 +5,7 @@ The following read-only checks were run from the development workstation on
 
 | Target | Result | Evidence |
 | --- | --- | --- |
+| Orin TurboVLA through embodied-infer `:44092` | Pass | Loaded the existing Orin TensorRT engine `/home/nvidia/turbovla_orin/artifacts/robotwin_finetune2k_ema_mixed_stable.plan` and local BERT assets through the new adapter; metadata reports the shared Vision batching plugin and an 8-step RoboTwin dry-run returned finite actions. |
 | Orin `192.168.10.162:44090` | Pass | Legacy TurboVLA WebSocket hello, then three zero-image requests returned finite `[1,50,14]`; measured round trips were about 221–338 ms. |
 | Orin + RoboTwin adapter | Pass | Three demo-environment steps completed through the legacy Orin server; each reconstructed action was finite 16D qpos. |
 | S600 HBM `192.168.10.252:5702` | Pass | Length-prefixed NPZ request with the deployed six-input contract returned finite `(1,50,14)` actions. |
