@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import importlib
 import json
 import os
@@ -14,6 +15,7 @@ from typing import Any
 
 from websockets.sync.server import serve
 
+from .core import BatchPolicy, InferenceScheduler, SequentialModelRunner
 from .models import create_model, model_registry
 from .protocol import (
     ProtocolError,
@@ -37,9 +39,11 @@ def load_factory(spec: str):
 
 
 class InferenceServer:
-    def __init__(self, backend, *, api_key: str | None = None) -> None:
+    def __init__(self, backend, *, api_key: str | None = None,
+                 scheduler: InferenceScheduler | None = None) -> None:
         self.backend = backend
         self.api_key = api_key
+        self.scheduler = scheduler
         self._backend_lock = threading.Lock()
         self._stats_lock = threading.Lock()
         self._started = time.monotonic()
@@ -104,11 +108,26 @@ class InferenceServer:
                 started = time.perf_counter()
                 deadline = started + request["timeout_ms"] / 1000.0
                 self._validate_shapes(request)
-                with self._backend_lock:
+                if self.scheduler is not None:
                     queue_ms = (time.perf_counter() - started) * 1000.0
-                    if time.perf_counter() >= deadline:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
                         raise TimeoutError("request deadline expired in server queue")
-                    result = self.backend.infer(request)
+                    future = self.scheduler.submit(
+                        request, deadline=deadline
+                    )
+                    result = future.result(timeout=max(0.0, remaining))
+                else:
+                    infer_guard = (
+                        nullcontext()
+                        if bool(getattr(self.backend, "supports_concurrent_infer", False))
+                        else self._backend_lock
+                    )
+                    with infer_guard:
+                        queue_ms = (time.perf_counter() - started) * 1000.0
+                        if time.perf_counter() >= deadline:
+                            raise TimeoutError("request deadline expired in server queue")
+                        result = self.backend.infer(request)
                 if time.perf_counter() >= deadline:
                     raise TimeoutError("request deadline expired during inference")
                 self._validate_shapes(request, result.actions)
@@ -169,7 +188,24 @@ def main() -> None:
         if args.backend_factory
         else create_model(args.model or "turbovla-tensorrt", config)
     )
-    application = InferenceServer(model_backend, api_key=os.getenv(args.api_key_env))
+    scheduler = None
+    batching = config.get("request_batching")
+    if batching and batching.get("enabled"):
+        runner_factory = getattr(model_backend, "create_runner", None)
+        runner = (
+            runner_factory()
+            if callable(runner_factory)
+            else SequentialModelRunner(model_backend)
+        )
+        scheduler = InferenceScheduler(
+            runner,
+            policy=BatchPolicy.from_mapping(batching),
+        )
+    application = InferenceServer(
+        model_backend,
+        api_key=os.getenv(args.api_key_env),
+        scheduler=scheduler,
+    )
     print(
         f"embodied-infer server listening on {args.host}:{args.port} "
         f"backend={model_backend.metadata.get('backend')}",

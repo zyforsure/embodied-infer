@@ -16,7 +16,10 @@ from .common import turbovla_spec
 
 class TurboVlaTensorRtBackend:
     def __init__(self, config: dict[str, Any]) -> None:
-        required = ("runtime_root", "engine", "tokenizer", "stats")
+        self._config = dict(config)
+        required = ("runtime_root", "tokenizer", "stats")
+        if not config.get("split_engines"):
+            required += ("engine",)
         missing = [key for key in required if not config.get(key)]
         if missing:
             raise ValueError(f"missing TurboVLA backend settings: {missing}")
@@ -24,14 +27,20 @@ class TurboVlaTensorRtBackend:
         if not runtime_root.is_dir():
             raise FileNotFoundError(f"runtime_root does not exist: {runtime_root}")
         sys.path.insert(0, str(runtime_root))
-        from trt_policy import TensorRTPolicy
-
-        self.policy = TensorRTPolicy(
-            config["engine"],
-            config["tokenizer"],
-            config["stats"],
-            cuda_graph=bool(config.get("cuda_graph", False)),
-        )
+        if config.get("split_engines"):
+            from .split_tensorrt import SplitTensorRTPolicy
+            self.policy = SplitTensorRTPolicy(
+                config["split_engines"], config["tokenizer"], config["stats"],
+                cuda_graph=bool(config.get("cuda_graph", False)),
+            )
+            self.supports_concurrent_infer = True
+        else:
+            from trt_policy import TensorRTPolicy
+            self.policy = TensorRTPolicy(
+                config["engine"], config["tokenizer"], config["stats"],
+                cuda_graph=bool(config.get("cuda_graph", False)),
+            )
+            self.supports_concurrent_infer = False
         encoder = getattr(self.policy, "encode_vision", None)
         self.vision_plugin = VisionBatchPlugin.from_config(config, encoder=encoder)
         self._spec = turbovla_spec(
@@ -77,6 +86,17 @@ class TurboVlaTensorRtBackend:
             control_period_ns=self.spec.control_period_ns,
             timing=timing,
         )
+
+    def create_runner(self):
+        """Return a request-level runner when this backend is split-engine based."""
+        if not hasattr(self.policy, "predict_from_vision"):
+            return None
+        from .runner import TurboVlaSplitRunner
+        return TurboVlaSplitRunner({
+            **self._config,
+            "model_name": self.spec.name,
+            "camera_order": list(self.spec.camera_order),
+        })
 
     def reset(self) -> None:
         return None

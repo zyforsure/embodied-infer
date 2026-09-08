@@ -1,0 +1,31 @@
+{
+  "runtime_root": "/home/nvidia/turbovla_orin",
+  "split_engines": {
+    "vision": "/home/nvidia/turbovla_split_onnx/vision_dynamic_b1b4_fp32.plan",
+    "text": "/home/nvidia/turbovla_split_onnx/text_b1_fp16.plan",
+    "fusion": "/home/nvidia/turbovla_split_onnx/fusion_b1_fp16.plan",
+    "action": "/home/nvidia/turbovla_split_onnx/action_b1_fp16.plan"
+  },
+  "tokenizer": "/home/nvidia/turbovla_orin/models/bert-base-uncased",
+  "stats": "/home/nvidia/turbovla_orin/models/dataset_statistics.json",
+  "cuda_graph": false,
+  "camera_order": [
+    "head",
+    "left_wrist",
+    "right_wrist"
+  ],
+  "control_period_ns": 100000000,
+  "model_name": "TurboVLA-RoboTwin-Split",
+  "vision_batching": {
+    "enabled": true,
+    "max_batch_size": 4,
+    "batch_wait_ms": 2.0,
+    "max_queue_size": 32
+  },
+  "request_batching": {
+    "enabled": true,
+    "max_batch_size": 4,
+    "batch_wait_ms": 2.0,
+    "max_queue_size": 32
+  }
+}
