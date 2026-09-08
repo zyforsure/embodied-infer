@@ -7,6 +7,7 @@ from embodied_infer_deploy.models import ModelRegistry, create_model, model_regi
 from embodied_infer_deploy.models.turbovla.common import turbovla_spec
 import embodied_infer_deploy.models.pi05.remote as pi05_remote
 import embodied_infer_deploy.models.pi05.cpp as pi05_cpp
+import embodied_infer_deploy.models.pi05.tcp as pi05_tcp
 from embodied_infer_deploy.models.pi05.hbm import Pi05HbmBackend
 
 
@@ -23,6 +24,7 @@ class ModelContractTests(unittest.TestCase):
                 "pi05-remote",
                 "pi05-cpp",
                 "pi05-hbm",
+                "pi05-tcp",
             },
         )
 
@@ -132,6 +134,12 @@ class ModelContractTests(unittest.TestCase):
         })
         self.assertFalse(backend.metadata["hbm_ready"])
         self.assertIn("missing HBM files", backend.metadata["hbm_error"])
+
+    def test_pi05_tcp_backend_contract(self):
+        backend = pi05_tcp.create_backend({"host": "127.0.0.1", "port": 1})
+        self.assertEqual(backend.spec.backend, "pi05-tcp")
+        self.assertEqual(backend.spec.raw_action_dim, 18)
+        backend.close()
 
 
 if __name__ == "__main__":

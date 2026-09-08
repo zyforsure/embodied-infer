@@ -70,6 +70,7 @@ def _doctor(args: argparse.Namespace) -> int:
         "pi05": ("pi05-remote", "pi05-remote.example.json"),
         "pi05-cpp": ("pi05-cpp", "pi05-cpp-orin.example.json"),
         "pi05-hbm": ("pi05-hbm", "pi05-hbm-s100.example.json"),
+        "pi05-tcp": ("pi05-tcp", "pi05-tcp-orin.example.json"),
     }
     model_name, default_config = defaults[profile]
     config_path = _config_path(args.config, default_config)
@@ -98,7 +99,7 @@ def _doctor(args: argparse.Namespace) -> int:
             host = str(config[host_key])
             port = int(config.get(port_key, 5702))
             check("hbm-service", _port_open(host, port), f"{host}:{port}")
-    if profile in ("pi05", "pi05-cpp"):
+    if profile in ("pi05", "pi05-cpp", "pi05-tcp"):
         host = str(config.get("host", "127.0.0.1"))
         port = int(config.get("port", 8000))
         check("pi05-service", _port_open(host, port), f"{host}:{port}")
@@ -240,7 +241,7 @@ def main() -> None:
     models.set_defaults(func=lambda _args: (print("\n".join(model_registry.names())) or 0))
 
     doctor = sub.add_parser("doctor", help="check software, model files, and services")
-    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100", "pi05", "pi05-cpp", "pi05-hbm"), default="mock")
+    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100", "pi05", "pi05-cpp", "pi05-hbm", "pi05-tcp"), default="mock")
     doctor.add_argument("--config")
     doctor.add_argument("--server-host")
     doctor.add_argument("--server-port", type=int, default=44091)

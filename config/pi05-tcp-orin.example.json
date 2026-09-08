@@ -1,0 +1,8 @@
+{
+  "host": "192.168.10.142",
+  "port": 8012,
+  "model_name": "Pi05-4090-Orin-Gateway",
+  "action_horizon": 16,
+  "control_period_ns": 100000000,
+  "timeout": 180.0
+}

@@ -16,6 +16,8 @@ The following read-only checks were run from the development workstation on
 | Pi05 local HBM on S100 `192.168.10.252` | Blocked (verified) | HBRT is installed and the three files are present in `/dev/shm/pi05_hbm`, but loading fails with `model march: nash-p, platform march: nash-e` (LLM also exceeds currently available BPU memory). Recompile the complete graph for `nash-e`; do not reuse the 4090 files. |
 | Pi05 on Orin `192.168.10.162` through embodied-infer | Pass (transport smoke) | New `pi05-cpp` backend completed two RoboTwin demo steps through the Embodied.cpp ZMQ daemon and returned finite `(16,14)` actions. The daemon is currently `hy_vla`, not Pi05; metadata marks `model_identity_verified=false`. |
 | Pi05 local HBM on Orin | Not applicable (runtime absent) | Orin has no `hbm_runtime`/`libhbrt4`; use the Embodied.cpp CUDA/GGUF backend or a Jetson TensorRT port. |
+| Pi05 real checkpoint through Orin gateway | Pass | 4090 model `/shared-data/zzyy/feng_pi0.5_merged_model/model.safetensors` loaded with strict key matching; Orin `:44091` `pi05-tcp` gateway returned finite `(16,14)` actions and completed a 2-step RoboTwin demo. The 4090 server returns native `(50,18)` actions. |
+| Pi05 ViT continuous batching primitive | Pass (unit) | `ViTContinuousBatcher` coalesces three equal-shape multi-view requests into one `[3,3,3,H,W]` encoder call, preserves result order, bounds the queue, and enforces deadlines. Wiring it into a split Vision-only server remains the next production optimization step. |
 | New embodied-infer service `:44091` on Orin | Not started | Port is closed; SSH key authentication is required to deploy the new service. |
 
 The S600 adapter test above validates transport, tensor shapes, inference, and

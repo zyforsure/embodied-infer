@@ -49,3 +49,32 @@ Orin daemon is restarted with a Pi05 GGUF; metadata exposes
 when files are missing or when HBRT reports a target-march mismatch. The
 current 4090 artifacts are `nash-p`; S100 is `nash-e`, therefore they must be
 recompiled for S100 before enabling the HBM inference bindings.
+
+## Orin gateway with the real Pi05 checkpoint
+
+When Orin does not have enough memory for the 16 GiB Pi05 checkpoint, run the
+float Pi05 model on the 4090 and keep the embodied-infer service on Orin:
+
+```bash
+embodied-infer doctor --profile pi05-tcp \
+  --config config/pi05-tcp-orin.example.json
+embodied-infer sim --model pi05-tcp \
+  --config config/pi05-tcp-orin.example.json --steps 2 --timeout 180
+```
+
+The checked path is:
+
+```text
+RoboTwin -> embodied-infer Orin :44091 -> Pi05 TCP server on 4090:8012
+       -> 18D action -> 14D shared action -> 18D/raw RoboTwin action
+```
+
+The 4090 server loads `feng_pi0.5_merged_model/model.safetensors` with strict
+key matching and returns finite `[50,18]` actions; the gateway exposes the
+first 16 actions and the shared 14 coordinates to the framework.
+
+The repository also includes `ViTContinuousBatcher`, a bounded, deadline-
+aware micro-batcher for the SigLIP/ViT stage. It groups equal-shape camera
+views into `[batch,views,3,H,W]` and preserves per-request futures. This is the
+next optimization seam for a split Pi05 server: batch only Vision, while
+keeping each request's LLM KV cache and action-expert denoising state isolated.

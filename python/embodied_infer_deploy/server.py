@@ -181,8 +181,6 @@ def main() -> None:
         args.port,
         max_size=64 * 1024 * 1024,
         compression=None,
-        ping_interval=20,
-        ping_timeout=20,
     ) as server:
         server.serve_forever()
 
