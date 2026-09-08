@@ -12,5 +12,10 @@ Each model family has an isolated directory and implements the contracts in
 | `turbovla-s100-remote` | `turbovla/` | S100 HBM server gateway |
 | `pi05-remote` | `pi05/` | OpenPI Pi0.5 WebSocket policy server |
 
+All Pi05 and TurboVLA adapters expose the optional `vision_batching` metadata
+and configuration. Native batching is selected only when the accelerator
+adapter supplies a split Vision encoder; monolithic remote services use the
+explicit `fallback` mode.
+
 Use `_template/` for a new model family. Heavy model dependencies must be
 imported inside the selected backend so registry discovery remains portable.

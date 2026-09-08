@@ -12,5 +12,11 @@
   "request_timeout": 300.0,
   "ping_interval": null,
   "ping_timeout": null,
-  "open_timeout": 10.0
+  "open_timeout": 10.0,
+  "vision_batching": {
+    "enabled": true,
+    "max_batch_size": 4,
+    "batch_wait_ms": 2.0,
+    "max_queue_size": 32
+  }
 }

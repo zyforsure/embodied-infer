@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...plugins import VisionBatchPlugin
 
 
 class Pi05HbmBackend:
@@ -24,6 +25,7 @@ class Pi05HbmBackend:
         self.expected_march = str(config.get("expected_march", "nash-e"))
         self._models: dict[str, Any] = {}
         self._load_error: str | None = None
+        self.vision_plugin = VisionBatchPlugin.from_config(config)
         self._spec = ModelSpec(
             name=str(config.get("model_name", "Pi05-HBM")), backend="pi05-hbm",
             raw_state_dim=int(config.get("raw_state_dim", 18)), model_state_dim=int(config.get("model_state_dim", 14)),
@@ -43,6 +45,7 @@ class Pi05HbmBackend:
     @property
     def metadata(self) -> dict[str, Any]:
         result = self.spec.metadata()
+        result["vision_batching"] = self.vision_plugin.metadata()
         result.update({"hbm_ready": not self._load_error and len(self._models) == len(self.paths),
                        "hbm_loaded_components": sorted(self._models)})
         if self._load_error:
@@ -77,6 +80,9 @@ class Pi05HbmBackend:
 
     def reset(self) -> None:
         return None
+
+    def close(self) -> None:
+        self.vision_plugin.close()
 
 
 def create_backend(config: dict[str, Any]) -> Pi05HbmBackend:

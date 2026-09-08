@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...plugins import VisionBatchPlugin
 from .common import turbovla_spec
 
 
@@ -35,6 +36,9 @@ class S600HbmRemoteBackend:
             normalization_mode=config.get("normalization_mode", "min_max"),
             binary_threshold=float(config.get("binary_threshold", 0.49)),
         )
+        self.vision_plugin = VisionBatchPlugin.from_config(
+            config, encoder=getattr(self.policy, "encode_vision", None)
+        )
         model_config = {**config, "model_name": config.get("model_name", "TurboVLA-S600")}
         self._spec = turbovla_spec(
             "s600-hbm-remote", model_config, default_period_ns=100_000_000
@@ -46,7 +50,9 @@ class S600HbmRemoteBackend:
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return self.spec.metadata()
+        value = self.spec.metadata()
+        value["vision_batching"] = self.vision_plugin.metadata()
+        return value
 
     def infer(self, request: dict[str, Any]) -> BackendResult:
         self.spec.validate_request(request)
@@ -72,6 +78,9 @@ class S600HbmRemoteBackend:
 
     def reset(self) -> None:
         return None
+
+    def close(self) -> None:
+        self.vision_plugin.close()
 
 
 def create_backend(config: dict[str, Any]) -> S600HbmRemoteBackend:

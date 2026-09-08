@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...plugins import VisionBatchPlugin
 
 MAGIC = b"P05R"
 
@@ -58,16 +59,19 @@ class Pi05TcpBackend:
         self.host = str(config.get("host", "192.168.10.142"))
         self.port = int(config.get("port", 8012))
         self.timeout = float(config.get("timeout", 120.0))
+        self.persistent_connection = bool(config.get("persistent_connection", True))
         self._lock = threading.RLock()
         self._sock: socket.socket | None = None
         self._seq = 0
+        self.vision_plugin = VisionBatchPlugin.from_config(config)
         self._spec = ModelSpec(
             name=str(config.get("model_name", "Pi05-4090")), backend="pi05-tcp",
             raw_state_dim=18, model_state_dim=14, raw_action_dim=18, model_action_dim=14,
             action_horizon=int(config.get("action_horizon", 16)),
             camera_order=("head", "left_wrist", "right_wrist"), action_representation="absolute",
             control_period_ns=int(config.get("control_period_ns", 100_000_000)),
-            extras={"protocol": "pi05-float-tcp", "remote_model": "pi05", "execution_host": self.host},
+            extras={"protocol": "pi05-float-tcp", "remote_model": "pi05", "execution_host": self.host,
+                    "persistent_connection": self.persistent_connection},
         )
 
     @property
@@ -76,7 +80,9 @@ class Pi05TcpBackend:
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return self.spec.metadata()
+        value = self.spec.metadata()
+        value["vision_batching"] = self.vision_plugin.metadata()
+        return value
 
     def _connect(self) -> socket.socket:
         if self._sock is None:
@@ -99,8 +105,11 @@ class Pi05TcpBackend:
             blobs_out = [_recv_exact(sock, int(n)) for n in response.get("blob_sizes", [])]
             return response, blobs_out
         except Exception:
-            self.close()
+            self._close_socket()
             raise
+        finally:
+            if not self.persistent_connection:
+                self._close_socket()
 
     def infer(self, request: dict[str, Any]) -> BackendResult:
         self.spec.validate_request(request)
@@ -130,11 +139,15 @@ class Pi05TcpBackend:
 
     def close(self) -> None:
         with self._lock:
-            if self._sock is not None:
-                try:
-                    self._sock.close()
-                finally:
-                    self._sock = None
+            self._close_socket()
+            self.vision_plugin.close()
+
+    def _close_socket(self) -> None:
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            finally:
+                self._sock = None
 
 
 def create_backend(config: dict[str, Any]) -> Pi05TcpBackend:

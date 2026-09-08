@@ -4,5 +4,12 @@
   "model_name": "Pi05-4090-Orin-Gateway",
   "action_horizon": 16,
   "control_period_ns": 100000000,
-  "timeout": 180.0
+  "timeout": 180.0,
+  "persistent_connection": false,
+  "vision_batching": {
+    "enabled": true,
+    "max_batch_size": 4,
+    "batch_wait_ms": 2.0,
+    "max_queue_size": 32
+  }
 }

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...plugins import VisionBatchPlugin
 from .common import turbovla_spec
 
 
@@ -30,6 +32,8 @@ class TurboVlaTensorRtBackend:
             config["stats"],
             cuda_graph=bool(config.get("cuda_graph", False)),
         )
+        encoder = getattr(self.policy, "encode_vision", None)
+        self.vision_plugin = VisionBatchPlugin.from_config(config, encoder=encoder)
         self._spec = turbovla_spec(
             "turbovla-tensorrt", config, default_period_ns=100_000_000
         )
@@ -42,14 +46,25 @@ class TurboVlaTensorRtBackend:
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return self.spec.metadata()
+        value = self.spec.metadata()
+        value["vision_batching"] = self.vision_plugin.metadata()
+        return value
 
     def infer(self, request: dict[str, Any]) -> BackendResult:
         self.spec.validate_request(request)
         images = [request["images"][name] for name in self.spec.camera_order]
-        normalized, timing = self.policy.predict_timed(
-            images, request["state"], request["instruction"]
-        )
+        deadline = time.monotonic() + float(request.get("timeout_ms", 300_000)) / 1000.0
+        if self.vision_plugin.native and callable(getattr(self.policy, "predict_from_vision", None)):
+            vision = self.vision_plugin.encode(images, deadline=deadline)
+            normalized, timing = self.policy.predict_from_vision(
+                vision, request["state"], request["instruction"]
+            )
+        else:
+            # Compatibility path for existing TensorRT releases whose policy
+            # still owns image preprocessing and the full forward call.
+            normalized, timing = self.policy.predict_timed(
+                images, request["state"], request["instruction"]
+            )
         normalized = np.asarray(normalized, dtype=np.float32)
         if normalized.shape != (1, 50, 14):
             raise RuntimeError(f"unexpected TurboVLA output shape {normalized.shape}")
@@ -65,6 +80,9 @@ class TurboVlaTensorRtBackend:
 
     def reset(self) -> None:
         return None
+
+    def close(self) -> None:
+        self.vision_plugin.close()
 
 
 def create_backend(config: dict[str, Any]) -> TurboVlaTensorRtBackend:

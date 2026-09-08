@@ -4,6 +4,7 @@ from typing import Any
 
 from ...core import ModelSpec
 from ...robots import DAZZ_S600_CONTRACT
+from ...plugins import VisionBatchPlugin
 
 
 def turbovla_spec(
@@ -12,6 +13,7 @@ def turbovla_spec(
     *,
     default_period_ns: int,
 ) -> ModelSpec:
+    vision_batching = VisionBatchPlugin.from_config(config).metadata()
     return ModelSpec(
         name=str(config.get("model_name", "TurboVLA-RoboTwin")),
         backend=backend,
@@ -29,5 +31,6 @@ def turbovla_spec(
             "model_input_shape": [1, 14],
             "model_output_shape": [1, 50, 14],
             "robot_command_dim": DAZZ_S600_CONTRACT.command_action_dim,
+            "vision_batching": vision_batching,
         },
     )

@@ -17,6 +17,7 @@ import numpy as np
 from websockets.sync.client import connect
 
 from ...core import BackendResult, ModelSpec
+from ...plugins import VisionBatchPlugin
 from ...robots import DAZZ_S600_CONTRACT
 
 
@@ -84,6 +85,10 @@ class Pi05RemoteBackend:
         self._lock = threading.RLock()
         self._connection = None
         self._metadata: dict[str, Any] = {}
+        # The stock OpenPI websocket endpoint is monolithic today.  The same
+        # plugin is still attached so a split ``encode_vision`` RPC can be
+        # enabled without changing the Pi05 adapter contract.
+        self.vision_plugin = VisionBatchPlugin.from_config(config)
         self._spec = ModelSpec(
             name=str(config.get("model_name", "Pi05")),
             backend="pi05-remote",
@@ -105,7 +110,9 @@ class Pi05RemoteBackend:
     @property
     def metadata(self) -> dict[str, Any]:
         # Keep connection lazy; startup checks can still inspect the local spec.
-        return {**self.spec.metadata(), **self._metadata}
+        value = {**self.spec.metadata(), **self._metadata}
+        value["vision_batching"] = self.vision_plugin.metadata()
+        return value
 
     def _ensure_connected(self) -> None:
         if self._connection is not None:
@@ -184,7 +191,8 @@ class Pi05RemoteBackend:
         with self._lock:
             if self._connection is not None:
                 self._connection.close()
-                self._connection = None
+            self._connection = None
+            self.vision_plugin.close()
 
 
 def create_backend(config: dict[str, Any]) -> Pi05RemoteBackend:

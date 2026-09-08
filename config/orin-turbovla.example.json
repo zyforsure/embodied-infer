@@ -6,5 +6,11 @@
   "cuda_graph": false,
   "camera_order": ["head", "left_wrist", "right_wrist"],
   "control_period_ns": 100000000,
-  "model_name": "TurboVLA-RoboTwin"
+  "model_name": "TurboVLA-RoboTwin",
+  "vision_batching": {
+    "enabled": true,
+    "max_batch_size": 4,
+    "batch_wait_ms": 2.0,
+    "max_queue_size": 32
+  }
 }

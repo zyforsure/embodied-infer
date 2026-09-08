@@ -151,6 +151,32 @@ The registry intentionally imports model modules only when selected. An Orin
 server therefore does not import S600 vendor libraries, and a local protocol
 test does not require TensorRT.
 
+## Vision continuous-batching plugin
+
+`plugins/vision_batch.py` provides one model-neutral Vision-stage plugin for
+Pi05 and TurboVLA. Enable it in a backend config with:
+
+```json
+"vision_batching": {
+  "enabled": true,
+  "max_batch_size": 4,
+  "batch_wait_ms": 2.0,
+  "max_queue_size": 32
+}
+```
+
+When the selected runtime exposes `encode_vision(batch)` (and a matching
+`predict_from_vision(...)` continuation), the plugin uses native continuous
+batching with a tensor shaped `[B, views, 3, H, W]`. Requests retain their own
+language tokens, KV cache, state, and action-expert denoising context. If a
+runtime only exposes a monolithic `predict(images, state, prompt)` API, the
+same configuration safely reports `mode=fallback` and preserves the original
+execution path; it does not claim a speedup until a split Vision API exists.
+
+This boundary follows the serving patterns used by vLLM-style schedulers:
+batch only the stateless, shape-compatible front-end, enforce a bounded queue
+and deadline, and keep autoregressive or diffusion state request-local.
+
 ## RoboTwin testing
 
 The default suite runs a complete fake RoboTwin episode through the real

@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...plugins import VisionBatchPlugin
 
 
 def _proto_classes():
@@ -89,6 +90,7 @@ class Pi05CppBackend:
         self._step = 0
         self._sock = None
         self._pb = None
+        self.vision_plugin = VisionBatchPlugin.from_config(config)
         self._spec = ModelSpec(
             name=str(config.get("model_name", "Pi05-EmbodiedCpp")),
             backend="pi05-cpp-zmq",
@@ -111,7 +113,9 @@ class Pi05CppBackend:
 
     @property
     def metadata(self) -> dict[str, Any]:
-        return self.spec.metadata()
+        value = self.spec.metadata()
+        value["vision_batching"] = self.vision_plugin.metadata()
+        return value
 
     def _ensure(self):
         if self._sock is not None:
@@ -195,6 +199,7 @@ class Pi05CppBackend:
         self._step = 0
 
     def close(self) -> None:
+        self.vision_plugin.close()
         with self._lock:
             if self._sock is not None:
                 self._sock.close(0)
