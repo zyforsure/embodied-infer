@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...endpoints import resolve_endpoint
 from ...plugins import VisionBatchPlugin
 from .common import turbovla_spec
 
@@ -23,11 +24,20 @@ def _load_module(path: Path):
 
 
 class S600HbmRemoteBackend:
+    # Identity is class-level so a new hardware generation (S100) changes
+    # three attributes instead of duplicating or translating the protocol.
+    backend_name = "s600-hbm-remote"
+    default_model_name = "TurboVLA-S600"
+    default_hardware = "s600"
+
     def __init__(self, config: dict[str, Any]) -> None:
         module = _load_module(Path(config["proxy_script"]).expanduser().resolve())
+        host, port = resolve_endpoint(config, default_port=5702)
         self.policy = module.TurboVLAProxyPolicy(
-            s600_host=config["s600_host"],
-            s600_port=int(config.get("s600_port", 5702)),
+            # The historical proxy names its endpoint arguments s600_host/
+            # s600_port; any host convention in the config resolves above.
+            s600_host=host,
+            s600_port=port,
             bert_path=Path(config["tokenizer"]),
             dino_preprocessor=Path(config["dino_preprocessor"]),
             timeout=float(config.get("upstream_timeout", 120.0)),
@@ -39,9 +49,15 @@ class S600HbmRemoteBackend:
         self.vision_plugin = VisionBatchPlugin.from_config(
             config, encoder=getattr(self.policy, "encode_vision", None)
         )
-        model_config = {**config, "model_name": config.get("model_name", "TurboVLA-S600")}
+        model_config = {
+            **config,
+            "model_name": config.get("model_name", self.default_model_name),
+        }
         self._spec = turbovla_spec(
-            "s600-hbm-remote", model_config, default_period_ns=100_000_000
+            self.backend_name,
+            model_config,
+            default_period_ns=100_000_000,
+            extras={"hardware": str(config.get("hardware", self.default_hardware))},
         )
 
     @property

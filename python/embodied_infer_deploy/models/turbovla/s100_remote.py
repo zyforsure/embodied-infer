@@ -1,34 +1,23 @@
 """TurboVLA gateway backend for the S100 HBM service.
 
 S100 exposes the same four-stage TurboVLA HBM wire contract as the existing
-S600 deployment.  The distinction is kept in the registry and metadata so a
-deployment can be selected explicitly, while the proven proxy implementation
-continues to own tokenization, DINO preprocessing, normalization, and the
-length-prefixed HBM transport.
+S600 deployment, so the hardware generation is pure identity: registry name,
+metadata, and defaults.  Endpoint configuration resolves through the shared
+host/port convention (``host``/``port``, ``s100_host``/``s100_port``, or the
+legacy ``s600_host`` pair); no key translation is required.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from ...core import ModelSpec
-from .common import turbovla_spec
 from .s600_remote import S600HbmRemoteBackend
 
 
 class S100HbmRemoteBackend(S600HbmRemoteBackend):
-    def __init__(self, config: dict[str, Any]) -> None:
-        # The historical proxy names its endpoint arguments s600_host/s600_port;
-        # translate the explicit S100 config without duplicating its protocol
-        # and preprocessing implementation.
-        translated = dict(config)
-        translated["s600_host"] = config.get("s100_host", config.get("s600_host"))
-        translated["s600_port"] = int(config.get("s100_port", config.get("s600_port", 5702)))
-        translated["model_name"] = config.get("model_name", "TurboVLA-S100")
-        super().__init__(translated)
-        self._spec = turbovla_spec(
-            "s100-hbm-remote", translated, default_period_ns=100_000_000
-        )
+    backend_name = "s100-hbm-remote"
+    default_model_name = "TurboVLA-S100"
+    default_hardware = "s100"
 
 
 def create_backend(config: dict[str, Any]) -> S100HbmRemoteBackend:

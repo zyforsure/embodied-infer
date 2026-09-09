@@ -28,7 +28,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--env-factory", required=True)
     parser.add_argument("--env-kwargs", default="{}", help="JSON object")
-    parser.add_argument("--host", default="192.168.10.162")
+    parser.add_argument(
+        "--host", default=os.getenv("EMBODIED_INFER_HOST", "192.168.10.162")
+    )
     parser.add_argument("--port", type=int, default=44091)
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--exec-horizon", type=int, default=1)

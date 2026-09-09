@@ -19,7 +19,7 @@ class Model(ModelTemplate):
         self.config = model_cfg
         api_key_env = model_cfg.get("api_key_env", "EMBODIED_INFER_API_KEY")
         self.client = InferenceClient(
-            model_cfg.get("host", "192.168.10.162"),
+            model_cfg.get("host", os.getenv("EMBODIED_INFER_HOST", "192.168.10.162")),
             int(model_cfg.get("port", 44091)),
             api_key=os.getenv(api_key_env),
             request_timeout=float(model_cfg.get("timeout", 10.0)),

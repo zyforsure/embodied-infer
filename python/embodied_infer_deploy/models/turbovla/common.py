@@ -12,9 +12,18 @@ def turbovla_spec(
     config: dict[str, Any],
     *,
     default_period_ns: int,
+    extras: dict[str, Any] | None = None,
 ) -> ModelSpec:
     vision_batching = VisionBatchPlugin.from_config(config).metadata()
     robot = get_robot_contract(str(config.get("robot", DEFAULT_ROBOT)))
+    merged_extras = {
+        "model_input_shape": [1, 14],
+        "model_output_shape": [1, 50, 14],
+        "robot_command_dim": robot.command_action_dim,
+        "vision_batching": vision_batching,
+    }
+    if extras:
+        merged_extras.update(extras)
     return ModelSpec(
         name=str(config.get("model_name", "TurboVLA-RoboTwin")),
         backend=backend,
@@ -28,10 +37,5 @@ def turbovla_spec(
         )),
         action_representation="absolute",
         control_period_ns=int(config.get("control_period_ns", default_period_ns)),
-        extras={
-            "model_input_shape": [1, 14],
-            "model_output_shape": [1, 50, 14],
-            "robot_command_dim": robot.command_action_dim,
-            "vision_batching": vision_batching,
-        },
+        extras=merged_extras,
     )

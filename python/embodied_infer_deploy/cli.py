@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 
 from .client import InferenceClient
+from .endpoints import discover_endpoints
 from .models import create_model, model_registry
 from .robots import get_robot_contract
 from .server import main as server_main
@@ -51,26 +52,6 @@ DOCTOR_PROFILES: dict[str, tuple[str, str, bool]] = {
     "pi05-hbm": ("pi05-hbm", "pi05-hbm-s100.example.json", False),
     "pi05-tcp": ("pi05-tcp", "pi05-tcp-orin.example.json", True),
 }
-
-
-def _config_endpoints(config: Mapping[str, Any]) -> list[tuple[str, str, int]]:
-    """Discover (name, host, port) from host/port config key pairs.
-
-    Recognizes both bare ``host``/``port`` and prefixed ``s600_host``/
-    ``s600_port`` style keys, so doctor checks stay config-driven instead
-    of hardcoding one endpoint convention per profile.
-    """
-
-    endpoints: list[tuple[str, str, int]] = []
-    for key, value in sorted(config.items()):
-        if key != "host" and not key.endswith("_host"):
-            continue
-        stem = "" if key == "host" else key[: -len("_host")]
-        port = config.get(f"{stem}_port" if stem else "port")
-        if value and port is not None:
-            name = f"{stem}-service" if stem else "service"
-            endpoints.append((name, str(value), int(port)))
-    return endpoints
 
 
 def _config_path(value: str | None, default_name: str) -> Path:
@@ -115,8 +96,9 @@ def _doctor(args: argparse.Namespace) -> int:
         if key in config:
             path = Path(str(config[key])).expanduser()
             check(key, path.exists(), f"{path} ({'found' if path.exists() else 'missing'})")
-    endpoints = _config_endpoints(config)
-    for name, host, port in endpoints:
+    endpoints = discover_endpoints(config)
+    for stem, host, port in endpoints:
+        name = f"{stem}-service" if stem else "service"
         check(name, _port_open(host, port), f"{host}:{port}")
     if needs_service and not endpoints:
         check("service", False, "missing host/port pair in config")
@@ -288,7 +270,7 @@ def main() -> None:
     sim.set_defaults(func=_sim)
 
     real = sub.add_parser("real", help="read-only S600 gateway and contract check")
-    real.add_argument("--host", default="192.168.10.162")
+    real.add_argument("--host", default=os.getenv("EMBODIED_INFER_HOST", "192.168.10.162"))
     real.add_argument("--port", type=int, default=44091)
     real.add_argument("--timeout", type=float, default=10.0)
     real.add_argument("--image-size", type=int, default=224)
@@ -299,7 +281,7 @@ def main() -> None:
     robotwin = sub.add_parser("robotwin", help="run an external RoboTwin environment")
     robotwin.add_argument("--env-factory", required=True)
     robotwin.add_argument("--env-kwargs", default="{}")
-    robotwin.add_argument("--host", default="192.168.10.162")
+    robotwin.add_argument("--host", default=os.getenv("EMBODIED_INFER_HOST", "192.168.10.162"))
     robotwin.add_argument("--port", type=int, default=44091)
     robotwin.add_argument("--timeout", type=float, default=10.0)
     robotwin.add_argument("--exec-horizon", type=int, default=1)
