@@ -8,7 +8,9 @@ The JSON files are templates, not credentials or model artifacts:
 - `s600-hbm-remote.example.json`: 4090 gateway to the existing S600 HBM server;
 - `s100-hbm-remote.example.json`: 4090 gateway to the S100 TurboVLA HBM server;
 - `pi05-remote.example.json`: OpenPI Pi0.5 WebSocket policy server;
-- `mock.example.json`: local protocol smoke tests.
+- `mock.example.json`: local protocol smoke tests;
+- `accelerations.example.json`: optional pluggable acceleration plugins
+  (prefix cache, vision-token cache, micro-pipeline, action-aware quantization).
 
 Replace paths and addresses for your machine. Do not commit plans, HBM files,
 tokenizers, normalization statistics, API keys, or robot logs.

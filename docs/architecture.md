@@ -177,6 +177,37 @@ This boundary follows the serving patterns used by vLLM-style schedulers:
 batch only the stateless, shape-compatible front-end, enforce a bounded queue
 and deadline, and keep autoregressive or diffusion state request-local.
 
+## Pluggable acceleration plugins
+
+Beyond vision batching, the deployment package ships four optional,
+model-neutral acceleration plugins in `python/embodied_infer_deploy/plugins/`.
+They follow the same convention: enable them through a backend config key,
+inject a backend-native callable when the runtime exposes one, and fall back
+safely to the original execution path when it does not. The motivating methods
+are drawn from the VLA inference-acceleration survey (BLURR, VLA-Cache,
+EfficientVLA, ActionFlow, QVLA / AutoQVLA).
+
+| Plugin | Config key | Idea | Native capability |
+| --- | --- | --- | --- |
+| `PrefixCachePlugin` | `prefix_cache` | Reuse the instruction prompt across an episode (BLURR prefix KV cache) | `prefixer(text) -> prefix` |
+| `VisionTokenCachePlugin` | `vision_token_cache` | Reuse unchanged per-camera visual tokens and prune redundant tokens (VLA-Cache / EfficientVLA) | `encoder(image) -> tokens`, optional `pruner(tokens, keep) -> tokens` |
+| `MicroPipelinePlugin` | `micro_pipeline` | Overlap the stages of consecutive requests (ActionFlow) | `stages=[f0, f1, ...]` |
+| `ActionQuantPlugin` | `action_quant` | Channel-wise mixed-precision quantization protecting action-sensitive channels (QVLA / AutoQVLA) | `fit(weights, importance)` + `quantize` / `dequantize` |
+
+```json
+{
+  "prefix_cache": {"enabled": true, "max_entries": 1024},
+  "vision_token_cache": {"enabled": true, "prune_ratio": 0.3},
+  "micro_pipeline": {"enabled": true, "max_in_flight": 8},
+  "action_quant": {"enabled": true, "sensitive_bits": 16, "default_bits": 8, "sensitive_ratio": 0.25}
+}
+```
+
+A backend that cannot expose the native capability reports `mode=fallback` and
+keeps its existing path, so enabling a plugin never changes semantics until the
+underlying runtime provides the split API. Plugin usage, cache statistics, and
+pipeline throughput are exposed through each backend's `metadata()`.
+
 ## RoboTwin testing
 
 The default suite runs a complete fake RoboTwin episode through the real

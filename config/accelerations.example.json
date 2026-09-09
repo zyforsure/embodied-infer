@@ -1,0 +1,24 @@
+{
+  "prefix_cache": {
+    "enabled": true,
+    "max_entries": 1024,
+    "normalize": true
+  },
+  "vision_token_cache": {
+    "enabled": true,
+    "max_entries": 32,
+    "prune_ratio": 0.3
+  },
+  "micro_pipeline": {
+    "enabled": true,
+    "max_in_flight": 8,
+    "workers": 1
+  },
+  "action_quant": {
+    "enabled": true,
+    "sensitive_bits": 16,
+    "default_bits": 8,
+    "sensitive_ratio": 0.25,
+    "axis": 0
+  }
+}
