@@ -2,6 +2,7 @@ import unittest
 
 import msgpack
 import numpy as np
+import socket
 
 from embodied_infer_deploy.protocol import (
     PROTOCOL_VERSION,
@@ -15,8 +16,35 @@ from embodied_infer_deploy.protocol import (
     parse_action_response,
     parse_health_response,
     parse_infer_request,
+    recv_frame,
+    send_frame,
     unpack_array,
 )
+
+
+class FramingTests(unittest.TestCase):
+    def test_frame_round_trip_with_blobs(self):
+        left, right = socket.socketpair()
+        try:
+            send_frame(left, b"P05R", {"type": "infer", "seq": 3}, [b"jpeg", b"actions"])
+            metadata, blobs = recv_frame(right, b"P05R")
+            assert metadata["type"] == "infer"
+            assert metadata["seq"] == 3
+            assert metadata["blob_sizes"] == [4, 7]
+            assert blobs == [b"jpeg", b"actions"]
+        finally:
+            left.close()
+            right.close()
+
+    def test_frame_rejects_wrong_magic(self):
+        left, right = socket.socketpair()
+        try:
+            send_frame(left, b"P05R", {"type": "infer"})
+            with self.assertRaises(ProtocolError):
+                recv_frame(right, b"XXXX")
+        finally:
+            left.close()
+            right.close()
 
 
 class ProtocolTests(unittest.TestCase):

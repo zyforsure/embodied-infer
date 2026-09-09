@@ -6,9 +6,7 @@ still feed its result through the normal embodied-infer/RoboTwin pipeline.
 
 from __future__ import annotations
 
-import json
 import socket
-import struct
 import threading
 import time
 from typing import Any
@@ -18,19 +16,10 @@ import numpy as np
 from ...core import BackendResult, ModelSpec
 from ...images import encode_jpeg
 from ...plugins import VisionBatchPlugin
+from ...protocol import recv_frame, send_frame
 from .common import pi05_spec
 
 MAGIC = b"P05R"
-
-
-def _recv_exact(sock: socket.socket, size: int) -> bytes:
-    chunks = bytearray()
-    while len(chunks) < size:
-        value = sock.recv(size - len(chunks))
-        if not value:
-            raise ConnectionError("Pi05 TCP server closed the connection")
-        chunks.extend(value)
-    return bytes(chunks)
 
 
 class Pi05TcpBackend:
@@ -69,19 +58,10 @@ class Pi05TcpBackend:
         return self._sock
 
     def _request(self, metadata: dict[str, Any], blobs: list[bytes]) -> tuple[dict[str, Any], list[bytes]]:
-        payload = json.dumps({**metadata, "blob_sizes": [len(x) for x in blobs]}, separators=(",", ":")).encode()
-        packet = MAGIC + struct.pack("!I", len(payload)) + payload + b"".join(blobs)
         sock = self._connect()
         try:
-            sock.sendall(packet)
-            if _recv_exact(sock, 4) != MAGIC:
-                raise RuntimeError("invalid Pi05 TCP response magic")
-            size = struct.unpack("!I", _recv_exact(sock, 4))[0]
-            if size <= 0 or size > 1_000_000:
-                raise RuntimeError(f"invalid Pi05 TCP response metadata size {size}")
-            response = json.loads(_recv_exact(sock, size))
-            blobs_out = [_recv_exact(sock, int(n)) for n in response.get("blob_sizes", [])]
-            return response, blobs_out
+            send_frame(sock, MAGIC, metadata, blobs)
+            return recv_frame(sock, MAGIC)
         except Exception:
             self._close_socket()
             raise
@@ -91,8 +71,8 @@ class Pi05TcpBackend:
 
     def infer(self, request: dict[str, Any]) -> BackendResult:
         self.spec.validate_request(request)
-        state = np.zeros(18, dtype=np.float32)
-        state[:14] = np.asarray(request["state"], dtype=np.float32)
+        state = np.zeros(self.spec.raw_state_dim, dtype=np.float32)
+        state[: self.spec.model_state_dim] = np.asarray(request["state"], dtype=np.float32)
         blobs = [encode_jpeg(request["images"][name]) for name in self.spec.camera_order]
         with self._lock:
             seq = self._seq

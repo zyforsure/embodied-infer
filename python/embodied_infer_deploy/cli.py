@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,41 @@ from .simulators.robotwin import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# Doctor profiles: name -> (registry model, default config, needs TCP service).
+# The argparse choices and the check logic both derive from this table, so a
+# new deployment profile is one line here instead of edits in three places.
+DOCTOR_PROFILES: dict[str, tuple[str, str, bool]] = {
+    "mock": ("mock", "mock.example.json", False),
+    "orin": ("turbovla-tensorrt", "orin-turbovla.example.json", False),
+    "s600-remote": ("turbovla-s600-remote", "s600-hbm-remote.example.json", True),
+    "s600-direct": ("turbovla-s600-hbm", "s600-hbm-direct.example.json", True),
+    "s100": ("turbovla-s100-remote", "s100-hbm-remote.example.json", True),
+    "pi05": ("pi05-remote", "pi05-remote.example.json", True),
+    "pi05-cpp": ("pi05-cpp", "pi05-cpp-orin.example.json", True),
+    "pi05-hbm": ("pi05-hbm", "pi05-hbm-s100.example.json", False),
+    "pi05-tcp": ("pi05-tcp", "pi05-tcp-orin.example.json", True),
+}
+
+
+def _config_endpoints(config: Mapping[str, Any]) -> list[tuple[str, str, int]]:
+    """Discover (name, host, port) from host/port config key pairs.
+
+    Recognizes both bare ``host``/``port`` and prefixed ``s600_host``/
+    ``s600_port`` style keys, so doctor checks stay config-driven instead
+    of hardcoding one endpoint convention per profile.
+    """
+
+    endpoints: list[tuple[str, str, int]] = []
+    for key, value in sorted(config.items()):
+        if key != "host" and not key.endswith("_host"):
+            continue
+        stem = "" if key == "host" else key[: -len("_host")]
+        port = config.get(f"{stem}_port" if stem else "port")
+        if value and port is not None:
+            name = f"{stem}-service" if stem else "service"
+            endpoints.append((name, str(value), int(port)))
+    return endpoints
 
 
 def _config_path(value: str | None, default_name: str) -> Path:
@@ -61,18 +97,7 @@ def _port_open(host: str, port: int, timeout: float = 0.25) -> bool:
 
 def _doctor(args: argparse.Namespace) -> int:
     profile = args.profile
-    defaults = {
-        "mock": ("mock", "mock.example.json"),
-        "orin": ("turbovla-tensorrt", "orin-turbovla.example.json"),
-        "s600-remote": ("turbovla-s600-remote", "s600-hbm-remote.example.json"),
-        "s600-direct": ("turbovla-s600-hbm", "s600-hbm-direct.example.json"),
-        "s100": ("turbovla-s100-remote", "s100-hbm-remote.example.json"),
-        "pi05": ("pi05-remote", "pi05-remote.example.json"),
-        "pi05-cpp": ("pi05-cpp", "pi05-cpp-orin.example.json"),
-        "pi05-hbm": ("pi05-hbm", "pi05-hbm-s100.example.json"),
-        "pi05-tcp": ("pi05-tcp", "pi05-tcp-orin.example.json"),
-    }
-    model_name, default_config = defaults[profile]
+    model_name, default_config, needs_service = DOCTOR_PROFILES[profile]
     config_path = _config_path(args.config, default_config)
     checks: list[dict[str, Any]] = []
 
@@ -90,19 +115,11 @@ def _doctor(args: argparse.Namespace) -> int:
         if key in config:
             path = Path(str(config[key])).expanduser()
             check(key, path.exists(), f"{path} ({'found' if path.exists() else 'missing'})")
-    if profile in ("s600-remote", "s600-direct", "s100"):
-        host_key = "s100_host" if profile == "s100" else "s600_host"
-        port_key = "s100_port" if profile == "s100" else "s600_port"
-        if not config.get(host_key):
-            check("hbm-service", False, f"missing {host_key} in config")
-        else:
-            host = str(config[host_key])
-            port = int(config.get(port_key, 5702))
-            check("hbm-service", _port_open(host, port), f"{host}:{port}")
-    if profile in ("pi05", "pi05-cpp", "pi05-tcp"):
-        host = str(config.get("host", "127.0.0.1"))
-        port = int(config.get("port", 8000))
-        check("pi05-service", _port_open(host, port), f"{host}:{port}")
+    endpoints = _config_endpoints(config)
+    for name, host, port in endpoints:
+        check(name, _port_open(host, port), f"{host}:{port}")
+    if needs_service and not endpoints:
+        check("service", False, "missing host/port pair in config")
     if args.server_host:
         check("inference-service", _port_open(args.server_host, args.server_port),
               f"{args.server_host}:{args.server_port}")
@@ -241,7 +258,7 @@ def main() -> None:
     models.set_defaults(func=lambda _args: (print("\n".join(model_registry.names())) or 0))
 
     doctor = sub.add_parser("doctor", help="check software, model files, and services")
-    doctor.add_argument("--profile", choices=("mock", "orin", "s600-remote", "s600-direct", "s100", "pi05", "pi05-cpp", "pi05-hbm", "pi05-tcp"), default="mock")
+    doctor.add_argument("--profile", choices=tuple(DOCTOR_PROFILES), default="mock")
     doctor.add_argument("--config")
     doctor.add_argument("--server-host")
     doctor.add_argument("--server-port", type=int, default=44091)

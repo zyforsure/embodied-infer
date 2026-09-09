@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import json
 import math
+import socket
+import struct
 from typing import Any
 
 import msgpack
@@ -283,3 +286,55 @@ def make_error(message: str, request_id: int = 0, code: str = "invalid_request")
         "code": str(code),
         "message": str(message),
     }
+
+
+# --------------------------------------------------------------------------- #
+# Length-prefixed TCP framing
+#
+# Raw socket transports (the Pi05 float TCP gateway, the S600 HBM proxy)
+# share one framing scheme: a 4-byte magic, a big-endian u32 metadata
+# length, a compact JSON metadata object carrying ``blob_sizes``, then the
+# raw blob bytes.  Keeping the framing here lets gateways reuse it without
+# adopting the versioned msgpack envelope above.
+# --------------------------------------------------------------------------- #
+
+
+def recv_exact(sock: socket.socket, size: int) -> bytes:
+    chunks = bytearray()
+    while len(chunks) < size:
+        value = sock.recv(size - len(chunks))
+        if not value:
+            raise ConnectionError("peer closed the connection")
+        chunks.extend(value)
+    return bytes(chunks)
+
+
+def send_frame(
+    sock: socket.socket,
+    magic: bytes,
+    metadata: Mapping[str, Any],
+    blobs: Sequence[bytes] = (),
+) -> None:
+    payload = json.dumps(
+        {**metadata, "blob_sizes": [len(blob) for blob in blobs]},
+        separators=(",", ":"),
+    ).encode()
+    sock.sendall(magic + struct.pack("!I", len(payload)) + payload + b"".join(blobs))
+
+
+def recv_frame(
+    sock: socket.socket,
+    magic: bytes,
+    *,
+    max_metadata_bytes: int = 1_000_000,
+) -> tuple[dict[str, Any], list[bytes]]:
+    if recv_exact(sock, len(magic)) != magic:
+        raise ProtocolError("invalid frame magic")
+    size = struct.unpack("!I", recv_exact(sock, 4))[0]
+    if size <= 0 or size > max_metadata_bytes:
+        raise ProtocolError(f"invalid frame metadata size {size}")
+    metadata = json.loads(recv_exact(sock, size))
+    if not isinstance(metadata, dict):
+        raise ProtocolError("frame metadata must be a JSON object")
+    blobs = [recv_exact(sock, int(n)) for n in metadata.get("blob_sizes", [])]
+    return metadata, blobs
