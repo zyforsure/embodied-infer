@@ -18,7 +18,7 @@ from websockets.sync.client import connect
 
 from ...core import BackendResult, ModelSpec
 from ...plugins import VisionBatchPlugin
-from ...robots import DAZZ_S600_CONTRACT
+from ...robots import DEFAULT_ROBOT, get_robot_contract
 
 
 def _pack_default(value: Any) -> Any:
@@ -89,18 +89,19 @@ class Pi05RemoteBackend:
         # plugin is still attached so a split ``encode_vision`` RPC can be
         # enabled without changing the Pi05 adapter contract.
         self.vision_plugin = VisionBatchPlugin.from_config(config)
+        robot = get_robot_contract(str(config.get("robot", DEFAULT_ROBOT)))
         self._spec = ModelSpec(
             name=str(config.get("model_name", "Pi05")),
             backend="pi05-remote",
-            raw_state_dim=int(config.get("raw_state_dim", 18)),
+            raw_state_dim=int(config.get("raw_state_dim", robot.raw_state_dim)),
             model_state_dim=int(config.get("model_state_dim", 14)),
-            raw_action_dim=int(config.get("raw_action_dim", 18)),
+            raw_action_dim=int(config.get("raw_action_dim", robot.raw_action_dim)),
             model_action_dim=int(config.get("model_action_dim", 14)),
             action_horizon=int(config.get("action_horizon", 16)),
             camera_order=tuple(config.get("camera_order", ["head", "left_wrist", "right_wrist"])),
             action_representation="absolute",
             control_period_ns=int(config.get("control_period_ns", 100_000_000)),
-            extras={"pi05_protocol": "openpi-websocket", "robot_command_dim": DAZZ_S600_CONTRACT.command_action_dim},
+            extras={"pi05_protocol": "openpi-websocket", "robot_command_dim": robot.command_action_dim},
         )
 
     @property

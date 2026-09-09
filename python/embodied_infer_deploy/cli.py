@@ -22,7 +22,7 @@ import numpy as np
 
 from .client import InferenceClient
 from .models import create_model, model_registry
-from .robots import DAZZ_S600_CONTRACT
+from .robots import get_robot_contract
 from .server import main as server_main
 from .simulators.robotwin.cli import main as robotwin_main
 from .simulators.robotwin import (
@@ -200,7 +200,7 @@ def _real(args: argparse.Namespace) -> int:
             "right_camera": image,
             "state": state,
         }, timeout=args.timeout)
-        target = DAZZ_S600_CONTRACT.actions_to_raw(response["actions"], state)[0]
+        target = get_robot_contract().actions_to_raw(response["actions"], state)[0]
         safe = np.asarray(target, dtype=np.float32).copy()
         safe[:18] = np.clip(safe, -np.inf, np.inf)
         print(json.dumps({"mode": "read-only", "motion_enabled": False,

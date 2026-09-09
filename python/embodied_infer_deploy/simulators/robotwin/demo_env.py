@@ -10,17 +10,25 @@ from __future__ import annotations
 
 import numpy as np
 
+from ...robots import RawRobotContract, get_robot_contract
+
 
 class DemoRoboTwinEnvironment:
-    def __init__(self, episode_steps: int = 8, image_size: int = 64) -> None:
+    def __init__(
+        self,
+        episode_steps: int = 8,
+        image_size: int = 64,
+        robot_contract: RawRobotContract | None = None,
+    ) -> None:
         if episode_steps <= 0:
             raise ValueError("episode_steps must be positive")
         if image_size <= 0:
             raise ValueError("image_size must be positive")
         self.episode_steps = int(episode_steps)
         self.image_size = int(image_size)
+        self.robot_contract = robot_contract or get_robot_contract()
         self.steps = 0
-        self.raw_state = np.zeros(18, dtype=np.float32)
+        self.raw_state = np.zeros(self.robot_contract.raw_state_dim, dtype=np.float32)
         self.actions: list[np.ndarray] = []
 
     def reset(self):
@@ -48,10 +56,13 @@ class DemoRoboTwinEnvironment:
 
     def take_action(self, action):
         value = np.asarray(action, dtype=np.float32).reshape(-1)
-        if value.shape != (16,) or not np.isfinite(value).all():
-            raise ValueError("demo RoboTwin action must be finite 16D qpos")
+        command_dim = self.robot_contract.command_action_dim
+        if value.shape != (command_dim,) or not np.isfinite(value).all():
+            raise ValueError(
+                f"demo RoboTwin action must be finite {command_dim}D qpos"
+            )
         self.actions.append(value.copy())
-        self.raw_state[:16] = value
+        self.raw_state[:command_dim] = value
         self.steps += 1
 
     def close(self) -> None:

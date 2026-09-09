@@ -8,6 +8,7 @@ import json
 import os
 
 from ...client import InferenceClient
+from ...robots import DEFAULT_ROBOT, get_robot_contract
 from .adapter import RoboTwinAdapter
 from .policy import RemoteRoboTwinPolicy
 from .runner import flatten_qpos_action, run_episode
@@ -33,6 +34,7 @@ def main() -> None:
     parser.add_argument("--exec-horizon", type=int, default=1)
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--default-instruction", default="")
+    parser.add_argument("--robot", default=DEFAULT_ROBOT)
     parser.add_argument(
         "--action-format",
         choices=("flat-qpos", "dict"),
@@ -52,7 +54,9 @@ def main() -> None:
         request_timeout=args.timeout,
     )
     adapter = RoboTwinAdapter(
-        client, default_instruction=args.default_instruction
+        client,
+        default_instruction=args.default_instruction,
+        robot_contract=get_robot_contract(args.robot),
     )
     policy = RemoteRoboTwinPolicy(
         adapter, exec_horizon=args.exec_horizon, timeout=args.timeout

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...core import ModelSpec
-from ...robots import DAZZ_S600_CONTRACT
+from ...robots import DEFAULT_ROBOT, get_robot_contract
 from ...plugins import VisionBatchPlugin
 
 
@@ -14,12 +14,13 @@ def turbovla_spec(
     default_period_ns: int,
 ) -> ModelSpec:
     vision_batching = VisionBatchPlugin.from_config(config).metadata()
+    robot = get_robot_contract(str(config.get("robot", DEFAULT_ROBOT)))
     return ModelSpec(
         name=str(config.get("model_name", "TurboVLA-RoboTwin")),
         backend=backend,
-        raw_state_dim=DAZZ_S600_CONTRACT.raw_state_dim,
+        raw_state_dim=robot.raw_state_dim,
         model_state_dim=14,
-        raw_action_dim=DAZZ_S600_CONTRACT.raw_action_dim,
+        raw_action_dim=robot.raw_action_dim,
         model_action_dim=14,
         action_horizon=50,
         camera_order=tuple(config.get(
@@ -30,7 +31,7 @@ def turbovla_spec(
         extras={
             "model_input_shape": [1, 14],
             "model_output_shape": [1, 50, 14],
-            "robot_command_dim": DAZZ_S600_CONTRACT.command_action_dim,
+            "robot_command_dim": robot.command_action_dim,
             "vision_batching": vision_batching,
         },
     )

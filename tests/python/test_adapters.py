@@ -2,21 +2,20 @@ import unittest
 
 import numpy as np
 
-from embodied_infer_deploy.adapters.robotwin import (
-    MODEL_STATE_INDEX,
-    RobotTwinAdapter,
-)
+from embodied_infer_deploy.robots import DAZZ_S600_CONTRACT
 from embodied_infer_deploy.adapters.s600 import S600Adapter
+
+MODEL_STATE_INDEX = np.asarray(DAZZ_S600_CONTRACT.model_state_indices)
 
 
 class AdapterTests(unittest.TestCase):
     def test_robotwin_maps_18d_state_and_holds_unmodelled_coordinates(self):
         raw = np.arange(18, dtype=np.float32)
-        model = RobotTwinAdapter.state_to_model_order(raw)
+        model = DAZZ_S600_CONTRACT.state_to_model(raw)
         np.testing.assert_array_equal(model, raw[MODEL_STATE_INDEX])
 
         predicted = model + 100
-        restored = RobotTwinAdapter.actions_to_raw_order(predicted[None], raw)[0]
+        restored = DAZZ_S600_CONTRACT.actions_to_raw(predicted[None], raw)[0]
         np.testing.assert_array_equal(restored[MODEL_STATE_INDEX], predicted)
         held = np.ones(18, dtype=bool)
         held[MODEL_STATE_INDEX] = False
@@ -43,7 +42,7 @@ class AdapterTests(unittest.TestCase):
             S600Adapter.validate_raw_state(np.zeros(14, dtype=np.float32))
 
     def test_robotwin_action_dict_uses_seven_joint_arms(self):
-        action = RobotTwinAdapter.action_dict(np.arange(18, dtype=np.float32))
+        action = DAZZ_S600_CONTRACT.action_dict(np.arange(18, dtype=np.float32))
         np.testing.assert_array_equal(action["left_arm_joint_state"], np.arange(7))
         np.testing.assert_array_equal(action["left_ee_joint_state"], [7])
         np.testing.assert_array_equal(action["right_arm_joint_state"], np.arange(8, 15))

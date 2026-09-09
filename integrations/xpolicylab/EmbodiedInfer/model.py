@@ -5,6 +5,7 @@ import os
 from XPolicyLab.model_template import ModelTemplate
 
 from embodied_infer_deploy.client import InferenceClient
+from embodied_infer_deploy.robots import get_robot_contract
 from embodied_infer_deploy.simulators.robotwin import (
     RemoteRoboTwinPolicy,
     RoboTwinAdapter,
@@ -31,16 +32,22 @@ class Model(ModelTemplate):
         if self.exec_horizon < 1:
             raise ValueError("exec_horizon must be positive")
         metadata = self.client.metadata
+        contract = get_robot_contract(str(model_cfg.get("robot", "dazz-s600")))
         dimensions = (
             int(metadata.get("raw_state_dim", -1)),
             int(metadata.get("model_state_dim", metadata.get("state_dim", -1))),
             int(metadata.get("raw_action_dim", -1)),
             int(metadata.get("model_action_dim", metadata.get("action_dim", -1))),
         )
-        if dimensions != (18, 14, 18, 14):
+        expected = (
+            contract.raw_state_dim,
+            contract.model_dim,
+            contract.raw_action_dim,
+            contract.model_dim,
+        )
+        if dimensions != expected:
             raise ValueError(
-                "RoboTwin requires raw/model dimensions 18/14 -> 18/14, "
-                f"got {metadata}"
+                f"RoboTwin requires raw/model dimensions {expected}, got {metadata}"
             )
         self.policy = RemoteRoboTwinPolicy(
             self.adapter,
