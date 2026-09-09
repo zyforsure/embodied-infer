@@ -11,6 +11,10 @@ The JSON files are templates, not credentials or model artifacts:
 - `mock.example.json`: local protocol smoke tests;
 - `accelerations.example.json`: optional pluggable acceleration plugins
   (prefix cache, vision-token cache, micro-pipeline, action-aware quantization).
+- `vla-pipeline.example.json`: standard VLA pipeline knobs -- pick one
+  `action_head` paradigm (`autoregressive`, `regression`, `flow_matching`,
+  or `dual_system`) and tune its `head_config` block; see
+  `docs/vla-pipeline.md`.
 
 Replace paths and addresses for your machine. Do not commit plans, HBM files,
 tokenizers, normalization statistics, API keys, or robot logs.
