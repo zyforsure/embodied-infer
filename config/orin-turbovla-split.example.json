@@ -22,6 +22,10 @@
     "batch_wait_ms": 2.0,
     "max_queue_size": 32
   },
+  "prefix_cache": {
+    "enabled": true,
+    "max_entries": 16
+  },
   "request_batching": {
     "enabled": true,
     "max_batch_size": 4,

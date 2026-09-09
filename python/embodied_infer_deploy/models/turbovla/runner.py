@@ -26,7 +26,8 @@ class TurboVlaSplitRunner:
         self.policy = SplitTensorRTPolicy(
             config["split_engines"],
             config["tokenizer"],
-            config.get("stats"),
+            config.get("prefix_cache"),
+            stats_path=config.get("stats"),
             cuda_graph=bool(config.get("cuda_graph", False)),
         )
         self._spec = turbovla_spec(

@@ -16,6 +16,8 @@ from typing import Any
 import cv2
 import numpy as np
 
+from ...plugins import PrefixCacheConfig, PrefixCachePlugin
+
 
 class _DynamicTensorRTEngine:
     """Minimal TensorRT runner for the dynamic-batch Vision engine.
@@ -155,6 +157,7 @@ class _DynamicTensorRTEngine:
 
 class SplitTensorRTPolicy:
     def __init__(self, engines: dict[str, str | Path], tokenizer_path: str | Path,
+                 prefix_cache: Any = None, *,
                  stats_path: str | Path | None = None, cuda_graph: bool = False):
         from engine_runtime import TensorRTEngine
         from transformers import AutoTokenizer
@@ -168,6 +171,10 @@ class SplitTensorRTPolicy:
         self.fusion_engine = TensorRTEngine(engines["fusion"], cuda_graph=cuda_graph)
         self.action_engine = TensorRTEngine(engines["action"], cuda_graph=cuda_graph)
         self._continuation_lock = threading.Lock()
+        self.prefix_cache = PrefixCachePlugin(
+            prefixer=self._encode_text,
+            config=PrefixCacheConfig.from_mapping(prefix_cache),
+        )
         self.tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_path, local_files_only=True, use_fast=True
         )
@@ -210,6 +217,12 @@ class SplitTensorRTPolicy:
         return {"input_ids": ids, "token_attention_mask": mask,
                 "self_attention_mask": self_mask, "position_ids": position}
 
+    def _encode_text(self, prompt: str):
+        """Tokenize + run the text engine; cached per instruction (BLURR)."""
+
+        text_inputs = self._text(prompt)
+        return text_inputs, self.text_engine.infer(text_inputs)
+
     def _normalize_state(self, state: np.ndarray) -> np.ndarray:
         value = np.asarray(state, dtype=np.float32).reshape(14).copy()
         valid = self.action_mask & (self.state_max != self.state_min)
@@ -240,8 +253,10 @@ class SplitTensorRTPolicy:
                             prompt: str) -> tuple[np.ndarray, dict[str, float]]:
         start = time.perf_counter()
         with self._continuation_lock:
-            text_inputs = self._text(prompt)
-            text = self.text_engine.infer(text_inputs)
+            bundle, _hit = self.prefix_cache.get_or_compute(str(prompt))
+            if bundle is None:
+                bundle = self._encode_text(prompt)
+            text_inputs, text = bundle
             fusion = self.fusion_engine.infer({
                 "visual_tokens": np.asarray(vision_tokens, dtype=np.float32).reshape(1, 588, 256),
                 "text_tokens": text["text_tokens"],

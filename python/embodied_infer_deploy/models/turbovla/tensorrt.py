@@ -30,7 +30,8 @@ class TurboVlaTensorRtBackend:
         if config.get("split_engines"):
             from .split_tensorrt import SplitTensorRTPolicy
             self.policy = SplitTensorRTPolicy(
-                config["split_engines"], config["tokenizer"], config["stats"],
+                config["split_engines"], config["tokenizer"],
+                config.get("prefix_cache"), stats_path=config["stats"],
                 cuda_graph=bool(config.get("cuda_graph", False)),
             )
             self.supports_concurrent_infer = True
@@ -57,6 +58,9 @@ class TurboVlaTensorRtBackend:
     def metadata(self) -> dict[str, Any]:
         value = self.spec.metadata()
         value["vision_batching"] = self.vision_plugin.metadata()
+        prefix_cache = getattr(self.policy, "prefix_cache", None)
+        if prefix_cache is not None:
+            value["prefix_cache"] = prefix_cache.metadata()
         return value
 
     def infer(self, request: dict[str, Any]) -> BackendResult:
