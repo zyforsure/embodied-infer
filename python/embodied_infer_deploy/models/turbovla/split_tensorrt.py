@@ -16,7 +16,16 @@ from typing import Any
 import cv2
 import numpy as np
 
-from ...plugins import PrefixCacheConfig, PrefixCachePlugin
+from ...plugins import (
+    CascadeConfig,
+    CascadePlugin,
+    PerceptionThrottleConfig,
+    PerceptionThrottlePlugin,
+    PrefixCacheConfig,
+    PrefixCachePlugin,
+    VisionTokenCacheConfig,
+    VisionTokenCachePlugin,
+)
 
 
 class _DynamicTensorRTEngine:
@@ -158,7 +167,9 @@ class _DynamicTensorRTEngine:
 class SplitTensorRTPolicy:
     def __init__(self, engines: dict[str, str | Path], tokenizer_path: str | Path,
                  prefix_cache: Any = None, *,
-                 stats_path: str | Path | None = None, cuda_graph: bool = False):
+                 stats_path: str | Path | None = None, cuda_graph: bool = False,
+                 vision_token_cache: Any = None, perception_throttle: Any = None,
+                 cascade: Any = None):
         from engine_runtime import TensorRTEngine
         from transformers import AutoTokenizer
 
@@ -175,6 +186,20 @@ class SplitTensorRTPolicy:
             prefixer=self._encode_text,
             config=PrefixCacheConfig.from_mapping(prefix_cache),
         )
+        self.vision_token_cache = VisionTokenCachePlugin(
+            encoder=self._run_vision,
+            config=VisionTokenCacheConfig.from_mapping(vision_token_cache),
+        )
+        self.perception_throttle = PerceptionThrottlePlugin(
+            perception_fn=self._run_vision,
+            config=PerceptionThrottleConfig.from_mapping(perception_throttle),
+        )
+        self.cascade = CascadePlugin(
+            scorer=self._difficulty,
+            config=CascadeConfig.from_mapping(cascade),
+        )
+        self._last_actions: np.ndarray | None = None
+        self._last_state: np.ndarray | None = None
         self.tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_path, local_files_only=True, use_fast=True
         )
@@ -245,9 +270,29 @@ class SplitTensorRTPolicy:
                 chw = cv2.resize(chw, (224, 224), interpolation=cv2.INTER_LINEAR)
                 sample_views.append(((chw - self.mean) / self.std).transpose(2, 0, 1))
             resized.append(np.stack(sample_views))
-        feeds = {"images": np.ascontiguousarray(np.stack(resized), dtype=np.float32)}
-        result = self.vision_engine.infer(feeds)
+        images = np.ascontiguousarray(np.stack(resized), dtype=np.float32)
+        if self.perception_throttle.native:
+            tokens, _fresh = self.perception_throttle.get(images)
+            return tokens
+        if self.vision_token_cache.native:
+            tokens, _reused = self.vision_token_cache.encode("scene", images)
+            return tokens
+        return self._run_vision(images)
+
+    def _run_vision(self, images: np.ndarray) -> np.ndarray:
+        """One Vision-engine call; the unit both perception plugins cache."""
+
+        result = self.vision_engine.infer({"images": images})
         return np.asarray(result["visual_tokens"], dtype=np.float32)
+
+    def _difficulty(self, context: Any) -> float:
+        """State-novelty score for cascade routing; first step is always hard."""
+
+        state = np.asarray(context.get("state", 0.0), dtype=np.float32)
+        if self._last_state is None:
+            return 1.0
+        delta = float(np.linalg.norm(state - self._last_state))
+        return float(np.clip(delta, 0.0, 1.0))
 
     def predict_from_vision(self, vision_tokens: np.ndarray, state: np.ndarray,
                             prompt: str) -> tuple[np.ndarray, dict[str, float]]:
@@ -273,6 +318,10 @@ class SplitTensorRTPolicy:
         return actions, {"split_policy_total_ms": (time.perf_counter() - start) * 1000}
 
     def predict_timed(self, images, state: np.ndarray, prompt: str):
+        if self.cascade.native:
+            route = self.cascade.route({"state": state})
+            if route == "light" and self._last_actions is not None:
+                return self._last_actions.copy(), {"cascade_route": "light"}
         value = np.asarray(images, dtype=np.float32)
         if value.ndim != 4:
             raise ValueError(f"expected three images, got {value.shape}")
@@ -281,7 +330,18 @@ class SplitTensorRTPolicy:
         if float(np.max(value, initial=0.0)) > 1.5:
             value = value / 255.0
         tokens = self.encode_vision(value[None])
-        return self.predict_from_vision(tokens, state, prompt)
+        actions, timing = self.predict_from_vision(tokens, state, prompt)
+        self._last_state = np.asarray(state, dtype=np.float32).copy()
+        self._last_actions = actions
+        return actions, timing
+
+    def plugin_metadata(self) -> dict[str, Any]:
+        return {
+            "prefix_cache": self.prefix_cache.metadata(),
+            "vision_token_cache": self.vision_token_cache.metadata(),
+            "perception_throttle": self.perception_throttle.metadata(),
+            "cascade": self.cascade.metadata(),
+        }
 
     def unnormalize_actions(self, normalized_actions: np.ndarray,
                             binary_threshold: float = 0.49) -> np.ndarray:

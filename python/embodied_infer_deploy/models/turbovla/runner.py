@@ -29,6 +29,9 @@ class TurboVlaSplitRunner:
             config.get("prefix_cache"),
             stats_path=config.get("stats"),
             cuda_graph=bool(config.get("cuda_graph", False)),
+            vision_token_cache=config.get("vision_token_cache"),
+            perception_throttle=config.get("perception_throttle"),
+            cascade=config.get("cascade"),
         )
         self._spec = turbovla_spec(
             "turbovla-tensorrt", config, default_period_ns=100_000_000
