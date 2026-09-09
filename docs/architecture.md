@@ -193,13 +193,19 @@ EfficientVLA, ActionFlow, QVLA / AutoQVLA).
 | `VisionTokenCachePlugin` | `vision_token_cache` | Reuse unchanged per-camera visual tokens and prune redundant tokens (VLA-Cache / EfficientVLA) | `encoder(image) -> tokens`, optional `pruner(tokens, keep) -> tokens` |
 | `MicroPipelinePlugin` | `micro_pipeline` | Overlap the stages of consecutive requests (ActionFlow) | `stages=[f0, f1, ...]` |
 | `ActionQuantPlugin` | `action_quant` | Channel-wise mixed-precision quantization protecting action-sensitive channels (QVLA / AutoQVLA) | `fit(weights, importance)` + `quantize` / `dequantize` |
+| `TokenMergePlugin` | `token_merge` | Merge redundant visual tokens while protecting salient ones (TEAM-VLA) | built-in NumPy merger or injected `merger(tokens, keep, protected)` |
+| `PerceptionThrottlePlugin` | `perception_throttle` | Run slow perception at a lower cadence than the action expert (Reflex) | `perception_fn(context) -> perception` |
+| `CascadePlugin` | `cascade` | Route easy steps to a light model and hard steps to the full VLA (SP-VLA) | `scorer(context) -> [0, 1]` |
 
 ```json
 {
   "prefix_cache": {"enabled": true, "max_entries": 1024},
   "vision_token_cache": {"enabled": true, "prune_ratio": 0.3},
   "micro_pipeline": {"enabled": true, "max_in_flight": 8},
-  "action_quant": {"enabled": true, "sensitive_bits": 16, "default_bits": 8, "sensitive_ratio": 0.25}
+  "action_quant": {"enabled": true, "sensitive_bits": 16, "default_bits": 8, "sensitive_ratio": 0.25},
+  "token_merge": {"enabled": true, "merge_ratio": 0.4, "salient_ratio": 0.1},
+  "perception_throttle": {"enabled": true, "refresh_steps": 5},
+  "cascade": {"enabled": true, "difficulty_threshold": 0.5}
 }
 ```
 

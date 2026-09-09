@@ -20,5 +20,19 @@
     "default_bits": 8,
     "sensitive_ratio": 0.25,
     "axis": 0
+  },
+  "token_merge": {
+    "enabled": true,
+    "merge_ratio": 0.4,
+    "salient_ratio": 0.1
+  },
+  "perception_throttle": {
+    "enabled": true,
+    "refresh_steps": 5,
+    "refresh_interval_s": 0.0
+  },
+  "cascade": {
+    "enabled": true,
+    "difficulty_threshold": 0.5
   }
 }

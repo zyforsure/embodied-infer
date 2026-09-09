@@ -8,10 +8,16 @@ import pytest
 from embodied_infer_deploy.plugins import (
     ActionQuantConfig,
     ActionQuantPlugin,
+    CascadeConfig,
+    CascadePlugin,
     MicroPipelineConfig,
     MicroPipelinePlugin,
+    PerceptionThrottleConfig,
+    PerceptionThrottlePlugin,
     PrefixCacheConfig,
     PrefixCachePlugin,
+    TokenMergeConfig,
+    TokenMergePlugin,
     VisionTokenCacheConfig,
     VisionTokenCachePlugin,
 )
@@ -324,3 +330,132 @@ def test_action_quant_rejects_invalid_config_and_inputs():
             plugin.quantize(weights)  # not fit yet
     finally:
         plugin.close()
+
+
+# --------------------------------------------------------------------------- #
+# Token merge (TEAM-VLA)
+# --------------------------------------------------------------------------- #
+
+def test_token_merge_compresses_and_protects_salient():
+    rng = np.random.default_rng(0)
+    base = rng.normal(size=(16, 8)).astype(np.float32)
+    tokens = np.concatenate([base, base[:4] + 1e-4])  # 4 near-duplicates
+    saliency = np.zeros(20, dtype=np.float32)
+    saliency[0] = 10.0  # most salient token must survive untouched
+
+    plugin = TokenMergePlugin(
+        config=TokenMergeConfig(enabled=True, merge_ratio=0.2, salient_ratio=0.2)
+    )
+    merged = plugin.compress(tokens, saliency)
+    assert merged.shape == (16, 8)
+    np.testing.assert_allclose(merged[0], tokens[0], atol=1e-6)
+    metadata = plugin.metadata()
+    assert metadata["tokens_in"] == 20
+    assert metadata["tokens_out"] == 16
+    assert metadata["compression"] == 0.8
+
+
+def test_token_merge_passthrough_when_disabled_or_opaque():
+    tokens = np.zeros((8, 4), dtype=np.float32)
+    disabled = TokenMergePlugin()
+    assert disabled.compress(tokens) is tokens
+
+    enabled = TokenMergePlugin(
+        config=TokenMergeConfig(enabled=True, merge_ratio=0.5)
+    )
+    opaque = {"engine": "handle"}
+    assert enabled.compress(opaque) is opaque
+    assert enabled.mode == "native"
+
+
+def test_token_merge_rejects_invalid_config():
+    with pytest.raises(ValueError):
+        TokenMergeConfig(merge_ratio=1.0)
+    with pytest.raises(ValueError):
+        TokenMergeConfig(salient_ratio=-0.1)
+
+
+# --------------------------------------------------------------------------- #
+# Perception throttle (Reflex)
+# --------------------------------------------------------------------------- #
+
+def test_perception_throttle_reuses_cached_perception():
+    calls = []
+
+    def perception_fn(context):
+        calls.append(context)
+        return {"features": len(calls)}
+
+    plugin = PerceptionThrottlePlugin(
+        perception_fn=perception_fn,
+        config=PerceptionThrottleConfig(enabled=True, refresh_steps=3),
+    )
+    first, fresh = plugin.get("ctx")
+    assert fresh is True
+    second, fresh = plugin.get("ctx")
+    assert fresh is False and second is first
+    plugin.get("ctx")
+    fourth, fresh = plugin.get("ctx")  # 4th call: refresh_steps=3 reached
+    assert fresh is True and fourth is not first
+    assert calls == ["ctx", "ctx"]
+    assert plugin.metadata()["reuse_rate"] == 0.5
+
+
+def test_perception_throttle_fallback_without_perception_fn():
+    plugin = PerceptionThrottlePlugin(
+        config=PerceptionThrottleConfig(enabled=True)
+    )
+    assert plugin.mode == "fallback"
+    perception, fresh = plugin.get("ctx")
+    assert perception is None and fresh is False
+
+
+def test_perception_throttle_interval_refresh():
+    clock = iter([0.0, 0.05, 0.09, 0.11, 0.12])
+    calls = []
+    plugin = PerceptionThrottlePlugin(
+        perception_fn=lambda context: calls.append(1) or 1,
+        config=PerceptionThrottleConfig(
+            enabled=True, refresh_steps=100, refresh_interval_s=0.1
+        ),
+        clock=lambda: next(clock),
+    )
+    plugin.get("ctx")   # t=0.00 refresh
+    plugin.get("ctx")   # t=0.05 reuse
+    plugin.get("ctx")   # t=0.09 reuse
+    plugin.get("ctx")   # t=0.11 interval elapsed -> refresh
+    assert calls == [1, 1]
+
+
+# --------------------------------------------------------------------------- #
+# Cascade (SP-VLA)
+# --------------------------------------------------------------------------- #
+
+def test_cascade_routes_by_difficulty():
+    plugin = CascadePlugin(
+        scorer=lambda context: context["difficulty"],
+        config=CascadeConfig(enabled=True, difficulty_threshold=0.5),
+    )
+    assert plugin.route({"difficulty": 0.1}) == "light"
+    assert plugin.route({"difficulty": 0.9}) == "heavy"
+    assert plugin.route({"difficulty": 0.5}) == "heavy"
+    metadata = plugin.metadata()
+    assert metadata["light_routes"] == 1
+    assert metadata["heavy_routes"] == 2
+
+
+def test_cascade_fallback_always_heavy():
+    plugin = CascadePlugin(config=CascadeConfig(enabled=True))
+    assert plugin.mode == "fallback"
+    assert plugin.route({"anything": 1}) == "heavy"
+    disabled = CascadePlugin()
+    assert disabled.route({}) == "heavy"
+
+
+def test_cascade_validates_scorer_range():
+    plugin = CascadePlugin(
+        scorer=lambda context: 1.7,
+        config=CascadeConfig(enabled=True),
+    )
+    with pytest.raises(ValueError, match="scorer"):
+        plugin.route({})
