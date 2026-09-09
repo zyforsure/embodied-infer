@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 
 from ...robots import DAZZ_S600_CONTRACT, RawRobotContract
 from ...images import as_hwc_uint8
+
+# Default RoboTwin camera naming; other simulators inject their own alias
+# map through the constructor instead of editing this class.
+ROBOTWIN_CAMERA_ALIASES = {
+    "head": ("head_camera", "cam_head", "cam_high"),
+    "left_wrist": ("left_camera", "cam_left_wrist", "left_wrist"),
+    "right_wrist": ("right_camera", "cam_right_wrist", "right_wrist"),
+}
 
 
 def _camera_value(value: Any) -> np.ndarray:
@@ -18,22 +27,21 @@ def _camera_value(value: Any) -> np.ndarray:
 
 
 class RoboTwinAdapter:
-    camera_aliases = {
-        "head": ("head_camera", "cam_head", "cam_high"),
-        "left_wrist": ("left_camera", "cam_left_wrist", "left_wrist"),
-        "right_wrist": ("right_camera", "cam_right_wrist", "right_wrist"),
-    }
-
     def __init__(
         self,
         client,
         *,
         default_instruction: str = "",
         robot_contract: RawRobotContract = DAZZ_S600_CONTRACT,
+        camera_aliases: Mapping[str, Sequence[str]] | None = None,
     ) -> None:
         self.client = client
         self.default_instruction = default_instruction
         self.robot_contract = robot_contract
+        aliases = camera_aliases if camera_aliases is not None else ROBOTWIN_CAMERA_ALIASES
+        self.camera_aliases = {
+            str(name): tuple(candidates) for name, candidates in aliases.items()
+        }
 
     def state_to_model_order(self, state: Any) -> np.ndarray:
         return self.robot_contract.state_to_model(state)

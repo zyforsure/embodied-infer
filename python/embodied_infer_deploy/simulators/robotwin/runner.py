@@ -7,17 +7,18 @@ from typing import Any
 
 import numpy as np
 
+from ...robots import DAZZ_S600_CONTRACT, RawRobotContract
 
-def flatten_qpos_action(action: Any) -> np.ndarray:
+
+def flatten_qpos_action(
+    action: Any,
+    *,
+    contract: RawRobotContract = DAZZ_S600_CONTRACT,
+) -> np.ndarray:
     """Convert an XPolicyLab-style action dictionary to RoboTwin qpos order."""
     if not isinstance(action, Mapping):
         return np.asarray(action, dtype=np.float32).reshape(-1)
-    required = (
-        "left_arm_joint_state",
-        "left_ee_joint_state",
-        "right_arm_joint_state",
-        "right_ee_joint_state",
-    )
+    required = contract.qpos_fields
     missing = [key for key in required if key not in action]
     if missing:
         raise KeyError(f"RoboTwin qpos action is missing fields: {missing}")

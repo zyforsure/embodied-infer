@@ -8,6 +8,16 @@ from typing import Any
 
 import numpy as np
 
+# Canonical qpos action fields in flatten order: (field name, slice attribute).
+# ``action_dict`` and ``flatten_qpos_action`` both derive from this single
+# definition so the wire schema and the simulator schema cannot drift apart.
+_ACTION_FIELDS = (
+    ("left_arm_joint_state", "left_arm_slice"),
+    ("left_ee_joint_state", "left_gripper_slice"),
+    ("right_arm_joint_state", "right_arm_slice"),
+    ("right_ee_joint_state", "right_gripper_slice"),
+)
+
 
 @dataclass(frozen=True)
 class RawRobotContract:
@@ -122,13 +132,17 @@ class RawRobotContract:
 
     def action_dict(self, action: Any) -> dict[str, np.ndarray]:
         value = np.asarray(action, dtype=np.float32).reshape(self.raw_action_dim)
-        return {
-            "raw_action": value.copy(),
-            "left_arm_joint_state": value[self.left_arm_slice],
-            "left_ee_joint_state": value[self.left_gripper_slice],
-            "right_arm_joint_state": value[self.right_arm_slice],
-            "right_ee_joint_state": value[self.right_gripper_slice],
+        fields = {
+            name: value[getattr(self, slice_attr)]
+            for name, slice_attr in _ACTION_FIELDS
         }
+        return {"raw_action": value.copy(), **fields}
+
+    @property
+    def qpos_fields(self) -> tuple[str, ...]:
+        """Action field names in the order ``flatten_qpos_action`` emits."""
+
+        return tuple(name for name, _ in _ACTION_FIELDS)
 
 
 # Mapping fixed by the existing TurboVLA calibration pipeline. The full target

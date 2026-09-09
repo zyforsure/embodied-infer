@@ -36,6 +36,12 @@ def main() -> None:
     parser.add_argument("--default-instruction", default="")
     parser.add_argument("--robot", default=DEFAULT_ROBOT)
     parser.add_argument(
+        "--camera-aliases",
+        default=None,
+        help='JSON map of canonical camera to alias list, e.g. '
+        '\'{"head": ["cam_high"]}\' for non-RoboTwin simulators',
+    )
+    parser.add_argument(
         "--action-format",
         choices=("flat-qpos", "dict"),
         default="flat-qpos",
@@ -53,10 +59,14 @@ def main() -> None:
         api_key=os.getenv(args.api_key_env),
         request_timeout=args.timeout,
     )
+    camera_aliases = (
+        json.loads(args.camera_aliases) if args.camera_aliases else None
+    )
     adapter = RoboTwinAdapter(
         client,
         default_instruction=args.default_instruction,
         robot_contract=get_robot_contract(args.robot),
+        camera_aliases=camera_aliases,
     )
     policy = RemoteRoboTwinPolicy(
         adapter, exec_horizon=args.exec_horizon, timeout=args.timeout
