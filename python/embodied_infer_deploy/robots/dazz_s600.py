@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,6 +18,62 @@ class RawRobotContract:
     left_gripper_slice: slice
     right_arm_slice: slice
     right_gripper_slice: slice
+
+    _SLICE_FIELDS = (
+        "left_arm_slice",
+        "left_gripper_slice",
+        "right_arm_slice",
+        "right_gripper_slice",
+    )
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "RawRobotContract":
+        """Build a contract from a JSON-style config mapping.
+
+        Slices are two-element ``[start, stop]`` lists so a new embodiment
+        can be described entirely in configuration and registered through
+        :class:`RobotRegistry` without new Python code.
+        """
+
+        if not isinstance(value, Mapping):
+            raise TypeError("robot contract must be a JSON object")
+        kwargs: dict[str, Any] = {}
+        for field in cls._SLICE_FIELDS:
+            raw = value.get(field)
+            if raw is None:
+                raise ValueError(f"robot contract requires {field}")
+            kwargs[field] = _as_slice(raw, field)
+        contract = cls(
+            raw_state_dim=int(value["raw_state_dim"]),
+            raw_action_dim=int(value["raw_action_dim"]),
+            model_state_indices=tuple(
+                int(index) for index in value["model_state_indices"]
+            ),
+            **kwargs,
+        )
+        contract.validate()
+        return contract
+
+    def validate(self) -> None:
+        if self.raw_state_dim <= 0 or self.raw_action_dim <= 0:
+            raise ValueError("raw state/action dims must be positive")
+        if not self.model_state_indices:
+            raise ValueError("model_state_indices must be non-empty")
+        if len(set(self.model_state_indices)) != len(self.model_state_indices):
+            raise ValueError("model_state_indices must be unique")
+        for index in self.model_state_indices:
+            if not 0 <= index < self.raw_action_dim:
+                raise ValueError(
+                    f"model_state_indices out of range: {index}"
+                )
+        for field in self._SLICE_FIELDS:
+            item = getattr(self, field)
+            start = item.start or 0
+            stop = item.stop or 0
+            if not (0 <= start < stop <= self.raw_action_dim):
+                raise ValueError(
+                    f"{field} must satisfy 0 <= start < stop <= raw_action_dim"
+                )
 
     @property
     def model_dim(self) -> int:
@@ -86,3 +143,11 @@ DAZZ_S600_CONTRACT = RawRobotContract(
     right_arm_slice=slice(8, 15),
     right_gripper_slice=slice(15, 16),
 )
+
+
+def _as_slice(value: Any, field: str) -> slice:
+    if isinstance(value, slice):
+        return value
+    if not isinstance(value, Sequence) or isinstance(value, str) or len(value) != 2:
+        raise ValueError(f"{field} must be a [start, stop] pair")
+    return slice(int(value[0]), int(value[1]))
