@@ -16,32 +16,11 @@ from typing import Any
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...images import encode_jpeg
 from ...plugins import VisionBatchPlugin
+from .common import pi05_spec
 
 MAGIC = b"P05R"
-
-
-def _jpeg(image: Any) -> bytes:
-    array = np.asarray(image)
-    if array.ndim != 3:
-        raise ValueError(f"Pi05 image must be rank 3, got {array.shape}")
-    if array.shape[0] in (1, 3, 4) and array.shape[-1] not in (1, 3, 4):
-        array = np.moveaxis(array, 0, -1)
-    if array.shape[-1] != 3:
-        raise ValueError(f"Pi05 image must be HWC RGB, got {array.shape}")
-    array = np.ascontiguousarray(array.astype(np.uint8, copy=False))
-    try:
-        from PIL import Image
-        import io
-        output = io.BytesIO()
-        Image.fromarray(array, mode="RGB").save(output, format="JPEG", quality=95)
-        return output.getvalue()
-    except ImportError:
-        import cv2
-        ok, encoded = cv2.imencode(".jpg", array[..., ::-1])
-        if not ok:
-            raise RuntimeError("failed to encode Pi05 image as JPEG")
-        return encoded.tobytes()
 
 
 def _recv_exact(sock: socket.socket, size: int) -> bytes:
@@ -64,13 +43,12 @@ class Pi05TcpBackend:
         self._sock: socket.socket | None = None
         self._seq = 0
         self.vision_plugin = VisionBatchPlugin.from_config(config)
-        self._spec = ModelSpec(
-            name=str(config.get("model_name", "Pi05-4090")), backend="pi05-tcp",
-            raw_state_dim=18, model_state_dim=14, raw_action_dim=18, model_action_dim=14,
-            action_horizon=int(config.get("action_horizon", 16)),
-            camera_order=("head", "left_wrist", "right_wrist"), action_representation="absolute",
-            control_period_ns=int(config.get("control_period_ns", 100_000_000)),
-            extras={"protocol": "pi05-float-tcp", "remote_model": "pi05", "execution_host": self.host,
+        self._spec = pi05_spec(
+            "pi05-tcp",
+            config,
+            default_model_name="Pi05-4090",
+            extras={"protocol": "pi05-float-tcp", "remote_model": "pi05",
+                    "execution_host": self.host,
                     "persistent_connection": self.persistent_connection},
         )
 
@@ -115,7 +93,7 @@ class Pi05TcpBackend:
         self.spec.validate_request(request)
         state = np.zeros(18, dtype=np.float32)
         state[:14] = np.asarray(request["state"], dtype=np.float32)
-        blobs = [_jpeg(request["images"][name]) for name in self.spec.camera_order]
+        blobs = [encode_jpeg(request["images"][name]) for name in self.spec.camera_order]
         with self._lock:
             seq = self._seq
             self._seq += 1

@@ -15,7 +15,9 @@ from typing import Any
 import numpy as np
 
 from ...core import BackendResult, ModelSpec
+from ...images import as_hwc_float01
 from ...plugins import VisionBatchPlugin
+from .common import pi05_spec
 
 
 def _proto_classes():
@@ -91,18 +93,14 @@ class Pi05CppBackend:
         self._sock = None
         self._pb = None
         self.vision_plugin = VisionBatchPlugin.from_config(config)
-        self._spec = ModelSpec(
-            name=str(config.get("model_name", "Pi05-EmbodiedCpp")),
-            backend="pi05-cpp-zmq",
-            raw_state_dim=int(config.get("raw_state_dim", 18)),
-            model_state_dim=int(config.get("model_state_dim", 14)),
-            raw_action_dim=int(config.get("raw_action_dim", 18)),
-            model_action_dim=int(config.get("model_action_dim", 14)),
-            action_horizon=int(config.get("action_horizon", 16)),
-            camera_order=tuple(config.get("camera_order", ["head", "left_wrist", "right_wrist"])),
-            action_representation="absolute", control_period_ns=int(config.get("control_period_ns", 100_000_000)),
-            extras={"protocol": "embodied.cpp-vla/1", "native_action_dim": int(config.get("native_action_dim", 16)),
-                    "server_state_dim": self.server_state_dim, "server_action_dim": self.server_action_dim,
+        self._spec = pi05_spec(
+            "pi05-cpp-zmq",
+            config,
+            default_model_name="Pi05-EmbodiedCpp",
+            extras={"protocol": "embodied.cpp-vla/1",
+                    "native_action_dim": int(config.get("native_action_dim", 16)),
+                    "server_state_dim": self.server_state_dim,
+                    "server_action_dim": self.server_action_dim,
                     "server_arch": self.server_arch,
                     "model_identity_verified": self.server_arch in ("pi05", "pi0.5")},
         )
@@ -128,20 +126,6 @@ class Pi05CppBackend:
         self._sock.setsockopt(zmq.RCVTIMEO, self.timeout_ms)
         self._sock.setsockopt(zmq.SNDTIMEO, self.timeout_ms)
         self._sock.connect(self.address)
-
-    @staticmethod
-    def _image(value: Any) -> np.ndarray:
-        image = np.asarray(value)
-        if image.ndim != 3:
-            raise ValueError(f"Pi05 image must be rank 3, got {image.shape}")
-        if image.shape[0] in (1, 3, 4) and image.shape[-1] not in (1, 3, 4):
-            image = np.moveaxis(image, 0, -1)
-        if image.shape[-1] != 3:
-            raise ValueError(f"Pi05 image must be HWC RGB, got {image.shape}")
-        image = image.astype(np.float32, copy=False)
-        if image.size and float(np.max(image)) > 1.5:
-            image = image / 255.0
-        return np.ascontiguousarray(np.clip(image, 0.0, 1.0), dtype=np.float32)
 
     def infer(self, request: dict[str, Any]) -> BackendResult:
         self.spec.validate_request(request)
@@ -173,7 +157,7 @@ class Pi05CppBackend:
             req.lang_tokens.extend(int(x) for x in token_ids)
             req.language_text = instruction
             for name in self.spec.camera_order:
-                image = self._image(request["images"][name])
+                image = as_hwc_float01(request["images"][name])
                 item = req.images.add(encoding=2, height=image.shape[0], width=image.shape[1])
                 item.data = image.tobytes()
             started = time.perf_counter()

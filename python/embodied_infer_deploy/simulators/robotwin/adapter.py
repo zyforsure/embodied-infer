@@ -8,19 +8,13 @@ from typing import Any
 import numpy as np
 
 from ...robots import DAZZ_S600_CONTRACT, RawRobotContract
+from ...images import as_hwc_uint8
 
 
 def _camera_value(value: Any) -> np.ndarray:
     if isinstance(value, dict):
         value = value.get("rgb", value.get("color"))
-    array = np.asarray(value)
-    if array.ndim != 3:
-        raise ValueError(f"camera image must be rank 3, got {array.shape}")
-    if array.shape[0] in (1, 3, 4) and array.shape[-1] not in (1, 3, 4):
-        array = np.moveaxis(array, 0, -1)
-    if array.shape[-1] != 3:
-        raise ValueError(f"RoboTwin camera must be HWC RGB, got {array.shape}")
-    return np.ascontiguousarray(array, dtype=np.uint8)
+    return as_hwc_uint8(value)
 
 
 class RoboTwinAdapter:

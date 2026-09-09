@@ -15,6 +15,7 @@ import numpy as np
 
 from ...core import BackendResult, ModelSpec
 from ...plugins import VisionBatchPlugin
+from .common import pi05_spec
 
 
 class Pi05HbmBackend:
@@ -26,14 +27,12 @@ class Pi05HbmBackend:
         self._models: dict[str, Any] = {}
         self._load_error: str | None = None
         self.vision_plugin = VisionBatchPlugin.from_config(config)
-        self._spec = ModelSpec(
-            name=str(config.get("model_name", "Pi05-HBM")), backend="pi05-hbm",
-            raw_state_dim=int(config.get("raw_state_dim", 18)), model_state_dim=int(config.get("model_state_dim", 14)),
-            raw_action_dim=int(config.get("raw_action_dim", 18)), model_action_dim=int(config.get("model_action_dim", 14)),
-            action_horizon=int(config.get("action_horizon", 16)),
-            camera_order=tuple(config.get("camera_order", ["head", "left_wrist", "right_wrist"])),
-            action_representation="absolute", control_period_ns=int(config.get("control_period_ns", 100000000)),
-            extras={"expected_march": self.expected_march, "hbm_components": list(self.paths)},
+        self._spec = pi05_spec(
+            "pi05-hbm",
+            config,
+            default_model_name="Pi05-HBM",
+            extras={"expected_march": self.expected_march,
+                    "hbm_components": list(self.paths)},
         )
         if bool(config.get("load_on_init", True)):
             self._load()

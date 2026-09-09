@@ -17,8 +17,9 @@ import numpy as np
 from websockets.sync.client import connect
 
 from ...core import BackendResult, ModelSpec
+from ...images import as_chw_uint8
 from ...plugins import VisionBatchPlugin
-from ...robots import DEFAULT_ROBOT, get_robot_contract
+from .common import pi05_spec
 
 
 def _pack_default(value: Any) -> Any:
@@ -54,21 +55,6 @@ def _unpack(value: bytes | bytearray | memoryview) -> Any:
     return msgpack.unpackb(value, raw=False, object_hook=_unpack_object, strict_map_key=False)
 
 
-def _as_chw_uint8(value: Any) -> np.ndarray:
-    image = np.asarray(value)
-    if image.ndim != 3:
-        raise ValueError(f"Pi05 image must be rank 3, got {image.shape}")
-    if image.dtype != np.uint8:
-        if np.issubdtype(image.dtype, np.floating):
-            image = np.clip(image, 0.0, 1.0) * 255.0
-        image = image.astype(np.uint8)
-    if image.shape[0] in (1, 3, 4) and image.shape[-1] not in (1, 3, 4):
-        return np.ascontiguousarray(image[:3])
-    if image.shape[-1] not in (1, 3, 4):
-        raise ValueError(f"Pi05 image must be HWC or CHW RGB, got {image.shape}")
-    return np.ascontiguousarray(np.moveaxis(image[..., :3], -1, 0))
-
-
 class Pi05RemoteBackend:
     """Adapter for an OpenPI Pi0.5 policy server."""
 
@@ -89,19 +75,11 @@ class Pi05RemoteBackend:
         # plugin is still attached so a split ``encode_vision`` RPC can be
         # enabled without changing the Pi05 adapter contract.
         self.vision_plugin = VisionBatchPlugin.from_config(config)
-        robot = get_robot_contract(str(config.get("robot", DEFAULT_ROBOT)))
-        self._spec = ModelSpec(
-            name=str(config.get("model_name", "Pi05")),
-            backend="pi05-remote",
-            raw_state_dim=int(config.get("raw_state_dim", robot.raw_state_dim)),
-            model_state_dim=int(config.get("model_state_dim", 14)),
-            raw_action_dim=int(config.get("raw_action_dim", robot.raw_action_dim)),
-            model_action_dim=int(config.get("model_action_dim", 14)),
-            action_horizon=int(config.get("action_horizon", 16)),
-            camera_order=tuple(config.get("camera_order", ["head", "left_wrist", "right_wrist"])),
-            action_representation="absolute",
-            control_period_ns=int(config.get("control_period_ns", 100_000_000)),
-            extras={"pi05_protocol": "openpi-websocket", "robot_command_dim": robot.command_action_dim},
+        self._spec = pi05_spec(
+            "pi05-remote",
+            config,
+            default_model_name="Pi05",
+            extras={"pi05_protocol": "openpi-websocket"},
         )
 
     @property
@@ -156,9 +134,9 @@ class Pi05RemoteBackend:
             # The stock OpenPI server expects the post-repack observation map.
             "state": np.asarray(request["state"], dtype=np.float32),
             "images": {
-                "cam_high": _as_chw_uint8(images["head"]),
-                "cam_left_wrist": _as_chw_uint8(images["left_wrist"]),
-                "cam_right_wrist": _as_chw_uint8(images["right_wrist"]),
+                "cam_high": as_chw_uint8(images["head"]),
+                "cam_left_wrist": as_chw_uint8(images["left_wrist"]),
+                "cam_right_wrist": as_chw_uint8(images["right_wrist"]),
             },
             "prompt": str(request.get("instruction", "")),
         }
