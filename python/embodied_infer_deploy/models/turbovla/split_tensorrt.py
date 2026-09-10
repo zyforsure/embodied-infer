@@ -321,7 +321,7 @@ class SplitTensorRTPolicy:
         if self.cascade.native:
             route = self.cascade.route({"state": state})
             if route == "light" and self._last_actions is not None:
-                return self._last_actions.copy(), {"cascade_route": "light"}
+                return self._last_actions.copy(), {"cascade_route_light": 1.0}
         value = np.asarray(images, dtype=np.float32)
         if value.ndim != 4:
             raise ValueError(f"expected three images, got {value.shape}")
