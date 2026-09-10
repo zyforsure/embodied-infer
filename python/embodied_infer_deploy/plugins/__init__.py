@@ -8,6 +8,7 @@ from .action_quant import ActionQuantPlugin, ActionQuantConfig, ActionQuantState
 from .token_merge import TokenMergePlugin, TokenMergeConfig
 from .perception_throttle import PerceptionThrottlePlugin, PerceptionThrottleConfig
 from .cascade import CascadePlugin, CascadeConfig
+from .fused_ops import FusedOpsPlugin, FusedOpsConfig
 
 __all__ = [
     "VisionBatchPlugin",
@@ -27,4 +28,6 @@ __all__ = [
     "PerceptionThrottleConfig",
     "CascadePlugin",
     "CascadeConfig",
+    "FusedOpsPlugin",
+    "FusedOpsConfig",
 ]

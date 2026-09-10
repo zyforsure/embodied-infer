@@ -196,6 +196,7 @@ EfficientVLA, ActionFlow, QVLA / AutoQVLA).
 | `TokenMergePlugin` | `token_merge` | Merge redundant visual tokens while protecting salient ones (TEAM-VLA) | built-in NumPy merger or injected `merger(tokens, keep, protected)` |
 | `PerceptionThrottlePlugin` | `perception_throttle` | Run slow perception at a lower cadence than the action expert (Reflex) | `perception_fn(context) -> perception` |
 | `CascadePlugin` | `cascade` | Route easy steps to a light model and hard steps to the full VLA (SP-VLA) | `scorer(context) -> [0, 1]` |
+| `FusedOpsPlugin` | `fused_ops` | Fused transformer operators for PyTorch-side stages: packed QKV GEMM, SDPA attention, GELU-MLP, residual+LayerNorm | torch kernels (CUDA when available), or injected `native_fn` per operator |
 
 ```json
 {
@@ -205,13 +206,17 @@ EfficientVLA, ActionFlow, QVLA / AutoQVLA).
   "action_quant": {"enabled": true, "sensitive_bits": 16, "default_bits": 8, "sensitive_ratio": 0.25},
   "token_merge": {"enabled": true, "merge_ratio": 0.4, "salient_ratio": 0.1},
   "perception_throttle": {"enabled": true, "refresh_steps": 5},
-  "cascade": {"enabled": true, "difficulty_threshold": 0.5}
+  "cascade": {"enabled": true, "difficulty_threshold": 0.5},
+  "fused_ops": {"enabled": true, "prefer": "auto"}
 }
 ```
 
 A backend that cannot expose the native capability reports `mode=fallback` and
 keeps its existing path, so enabling a plugin never changes semantics until the
-underlying runtime provides the split API. Plugin usage, cache statistics, and
+underlying runtime provides the split API.  `FusedOpsPlugin` differs in one
+way: its operators always compute a correct result, choosing fused torch
+kernels (CUDA when available) in native mode and the NumPy reference otherwise,
+so it accelerates PyTorch-side stages rather than gating on a split engine API. Plugin usage, cache statistics, and
 pipeline throughput are exposed through each backend's `metadata()`.
 
 ## RoboTwin testing

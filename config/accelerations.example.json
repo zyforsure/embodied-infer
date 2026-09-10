@@ -34,5 +34,9 @@
   "cascade": {
     "enabled": true,
     "difficulty_threshold": 0.5
+  },
+  "fused_ops": {
+    "enabled": true,
+    "prefer": "auto"
   }
 }
