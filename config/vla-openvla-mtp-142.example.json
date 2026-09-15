@@ -1,0 +1,19 @@
+{
+  "name": "openvla-mtp-remote",
+  "backend": "openvla-tcp",
+  "host": "192.168.10.142",
+  "port": 8021,
+  "arch": "openvla",
+  "raw_state_dim": 7,
+  "model_state_dim": 7,
+  "raw_action_dim": 7,
+  "model_action_dim": 7,
+  "action_horizon": 8,
+  "camera_order": ["front"],
+  "action_representation": "absolute",
+  "timeout_s": 120,
+  "persistent_connection": true,
+  "extras": {
+    "note": "MTP via single-encode multi-decode; steps 2..H are extrapolations, base ckpt was single-step supervised"
+  }
+}

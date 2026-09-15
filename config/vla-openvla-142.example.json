@@ -1,0 +1,16 @@
+{
+  "name": "openvla-remote",
+  "backend": "openvla-tcp",
+  "host": "192.168.10.142",
+  "port": 8021,
+  "arch": "openvla",
+  "raw_state_dim": 7,
+  "model_state_dim": 7,
+  "raw_action_dim": 7,
+  "model_action_dim": 7,
+  "action_horizon": 1,
+  "camera_order": ["front"],
+  "action_representation": "absolute",
+  "timeout_s": 60,
+  "persistent_connection": true
+}
