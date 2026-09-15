@@ -242,6 +242,9 @@ def main() -> None:
     doctor = sub.add_parser("doctor", help="check software, model files, and services")
     doctor.add_argument("--profile", choices=tuple(DOCTOR_PROFILES), default="mock")
     doctor.add_argument("--config")
+    doctor.add_argument("--backend-config", dest="config", default=None,
+                        help="alias of --config (same name as python -m "
+                             "embodied_infer_deploy.server)")
     doctor.add_argument("--server-host")
     doctor.add_argument("--server-port", type=int, default=44091)
     doctor.add_argument("--json", action="store_true")
@@ -250,6 +253,9 @@ def main() -> None:
     server = sub.add_parser("server", help="start an inference server")
     server.add_argument("--model", default="mock")
     server.add_argument("--config")
+    server.add_argument("--backend-config", dest="config", default=None,
+                        help="alias of --config (same name as python -m "
+                             "embodied_infer_deploy.server)")
     server.add_argument("--default-config", default="mock.example.json")
     server.add_argument("--host", default="0.0.0.0")
     server.add_argument("--port", type=int, default=44091)
@@ -259,6 +265,9 @@ def main() -> None:
     sim = sub.add_parser("sim", help="run the built-in RoboTwin-compatible simulation")
     sim.add_argument("--model", default="mock", choices=model_registry.names())
     sim.add_argument("--config")
+    sim.add_argument("--backend-config", dest="config", default=None,
+                        help="alias of --config (same name as python -m "
+                             "embodied_infer_deploy.server)")
     sim.add_argument("--default-config", default="mock.example.json")
     sim.add_argument("--host", default="127.0.0.1")
     sim.add_argument("--port", type=int, default=44091)

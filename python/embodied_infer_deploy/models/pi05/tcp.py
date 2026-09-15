@@ -57,7 +57,8 @@ class Pi05TcpBackend:
             self._sock.settimeout(self.timeout)
         return self._sock
 
-    def _request(self, metadata: dict[str, Any], blobs: list[bytes]) -> tuple[dict[str, Any], list[bytes]]:
+    def _request_once(self, metadata: dict[str, Any],
+                      blobs: list[bytes]) -> tuple[dict[str, Any], list[bytes]]:
         sock = self._connect()
         try:
             send_frame(sock, MAGIC, metadata, blobs)
@@ -65,6 +66,18 @@ class Pi05TcpBackend:
         except Exception:
             self._close_socket()
             raise
+
+    def _request(self, metadata: dict[str, Any], blobs: list[bytes]) -> tuple[dict[str, Any], list[bytes]]:
+        try:
+            return self._request_once(metadata, blobs)
+        except Exception:
+            self._close_socket()
+            if not self.persistent_connection:
+                raise
+            # A persistent socket can go stale while the client is idle.
+            # Retry once on a freshly opened connection instead of failing
+            # the control step.
+            return self._request_once(metadata, blobs)
         finally:
             if not self.persistent_connection:
                 self._close_socket()

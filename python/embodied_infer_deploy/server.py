@@ -182,7 +182,13 @@ def main() -> None:
         return
     if not args.backend_config:
         parser.error("--backend-config is required unless --list-models is used")
-    config = json.loads(Path(args.backend_config).read_text(encoding="utf-8"))
+    config_path = Path(args.backend_config).expanduser()
+    if not config_path.is_file():
+        parser.error("backend config not found: %s" % config_path)
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        parser.error("invalid JSON in %s: %s" % (config_path, exc))
     model_backend = (
         load_factory(args.backend_factory)(config)
         if args.backend_factory

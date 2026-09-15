@@ -5,7 +5,7 @@
   "action_horizon": 16,
   "control_period_ns": 100000000,
   "timeout": 180.0,
-  "persistent_connection": false,
+  "persistent_connection": true,
   "vision_batching": {
     "enabled": true,
     "max_batch_size": 4,
