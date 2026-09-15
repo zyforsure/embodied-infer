@@ -1,0 +1,13 @@
+{
+  "proxy_script": "/home/yaoxing/TurboVLA_bridge/turbovla_robotwin_proxy.py",
+  "s100_host": "192.168.10.252",
+  "s100_port": 5702,
+  "tokenizer": "/home/yaoxing/models/bert-base-uncased",
+  "dino_preprocessor": "/home/yaoxing/models/dinov3-vitb16-pretrain-lvd1689m/preprocessor_config.json",
+  "stats": "/home/yaoxing/TurboVLA-train/results/Checkpoints/robotwin_release55k_finetune_2k_acc4/dataset_statistics.json",
+  "statistics_key": "new_embodiment",
+  "normalization_mode": "min_max",
+  "camera_order": ["head", "left_wrist", "right_wrist"],
+  "control_period_ns": 100000000,
+  "model_name": "TurboVLA-S100"
+}

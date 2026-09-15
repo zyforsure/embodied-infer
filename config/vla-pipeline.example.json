@@ -1,0 +1,28 @@
+{
+  "model_name": "my-vla",
+  "action_head": "flow_matching",
+  "model_state_dim": 14,
+  "model_action_dim": 14,
+  "action_horizon": 50,
+  "camera_order": ["head", "left_wrist", "right_wrist"],
+  "control_period_ns": 20000000,
+  "head_config": {
+    "autoregressive": {
+      "max_tokens": 60,
+      "eos_token": null
+    },
+    "flow_matching": {
+      "num_steps": 10,
+      "noise_scale": 1.0,
+      "seed": null
+    },
+    "dual_system": {
+      "refresh_interval_s": 1.0,
+      "instruction_key": "instruction",
+      "fast": {
+        "kind": "flow_matching",
+        "num_steps": 4
+      }
+    }
+  }
+}

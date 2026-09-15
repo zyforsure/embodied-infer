@@ -1,0 +1,12 @@
+{
+  "proxy_script": "/shared-data/zzyy/TurboVLA_bridge/turbovla_robotwin_proxy.py",
+  "s600_host": "192.168.10.252",
+  "s600_port": 5702,
+  "tokenizer": "/home/yaoxing/models/bert-base-uncased",
+  "dino_preprocessor": "/home/yaoxing/models/dinov3-vitb16-pretrain-lvd1689m/preprocessor_config.json",
+  "stats": "/shared-data/zzyy/TurboVLA_bridge/assets/dataset_statistics.json",
+  "statistics_key": "new_embodiment",
+  "normalization_mode": "min_max",
+  "camera_order": ["head", "left_wrist", "right_wrist"],
+  "control_period_ns": 100000000
+}
