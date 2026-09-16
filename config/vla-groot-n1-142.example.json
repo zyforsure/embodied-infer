@@ -1,0 +1,17 @@
+{
+  "name": "groot-n1-remote",
+  "backend": "groot-tcp",
+  "host": "192.168.10.142",
+  "port": 8022,
+  "arch": "gr00t-n1",
+  "raw_state_dim": 32,
+  "model_state_dim": 32,
+  "raw_action_dim": 26,
+  "model_action_dim": 26,
+  "action_horizon": 16,
+  "camera_order": ["ego_view"],
+  "image_size": [256, 256],
+  "action_representation": "absolute",
+  "timeout_s": 60,
+  "persistent_connection": true
+}

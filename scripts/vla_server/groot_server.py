@@ -35,6 +35,29 @@ import numpy as np
 import torch
 from PIL import Image
 
+# --- compat shim -------------------------------------------------------------
+# The bundled eagle2 backbone config requests flash_attention_2, but flash_attn
+# is not installed in the serving env.  Force eager attention on any config that
+# asks for FA2 before AutoModel.from_config builds the model.
+from transformers.models.auto import auto_factory as _af
+
+_orig_from_config = _af._BaseAutoModelClass.from_config.__func__
+
+
+def _eager_from_config(cls, config, **kwargs):
+    if getattr(config, "_attn_implementation", None) == "flash_attention_2":
+        config._attn_implementation = "eager"
+    kwargs.pop("attn_implementation", None)
+    for sub in ("vision_config", "text_config", "llm_config"):
+        sub_cfg = getattr(config, sub, None)
+        if sub_cfg is not None and getattr(sub_cfg, "_attn_implementation", None) == "flash_attention_2":
+            sub_cfg._attn_implementation = "eager"
+    return _orig_from_config(cls, config, **kwargs)
+
+
+_af._BaseAutoModelClass.from_config = classmethod(_eager_from_config)
+# -----------------------------------------------------------------------------
+
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.model.policy import Gr00tPolicy
 

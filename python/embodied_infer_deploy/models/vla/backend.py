@@ -39,8 +39,12 @@ def _send_msg(conn: socket.socket, obj: dict) -> None:
     conn.sendall(struct.pack(">I", len(payload)) + payload)
 
 
-def _encode_image(value: Any) -> bytes:
-    """Accept HWC/CHW uint8 arrays or raw bytes and return JPEG bytes."""
+def _encode_image(value: Any, image_size: tuple[int, int] | None = None) -> bytes:
+    """Accept HWC/CHW uint8 arrays or raw bytes and return JPEG bytes.
+
+    ``image_size`` is an optional ``(width, height)`` the frame is resized to;
+    some servers (e.g. GR00T gr1_arms_only) reject other resolutions.
+    """
     if isinstance(value, (bytes, bytearray)):
         return bytes(value)
     array = np.asarray(value)
@@ -50,8 +54,11 @@ def _encode_image(value: Any) -> bytes:
         array = np.clip(array, 0, 255).astype(np.uint8)
     if array.shape[-1] == 1:
         array = np.repeat(array, 3, axis=-1)
+    image = Image.fromarray(array)
+    if image_size is not None and image.size != tuple(image_size):
+        image = image.resize(tuple(image_size), Image.BILINEAR)
     buffer = io.BytesIO()
-    Image.fromarray(array).save(buffer, format="JPEG", quality=90)
+    image.save(buffer, format="JPEG", quality=90)
     return buffer.getvalue()
 
 
@@ -65,6 +72,8 @@ class VlaRemoteBackend:
         self._conn: socket.socket | None = None
 
         camera_order = tuple(config.get("camera_order") or ("front",))
+        size = config.get("image_size")
+        self._image_size = tuple(int(v) for v in size) if size else None
         horizon = int(config.get("action_horizon", 1))
         model_action_dim = int(config.get("model_action_dim", 7))
         model_state_dim = int(config.get("model_state_dim", 7))
@@ -133,7 +142,7 @@ class VlaRemoteBackend:
         images = {}
         for name in self.spec.camera_order:
             if name in request.get("images", {}):
-                images[name] = _encode_image(request["images"][name])
+                images[name] = _encode_image(request["images"][name], self._image_size)
         if not images:
             raise ValueError(f"no known cameras in request: {sorted(request.get('images', {}))}")
 
